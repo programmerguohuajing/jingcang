@@ -5,7 +5,15 @@ import {
   BrowserInstallRequest,
   BrowserItem,
   CreateSessionRequest,
-  SessionResponse
+  SessionResponse,
+  AdminUserItem,
+  ApprovalRequestItem,
+  ApprovalStatus,
+  ApprovalType,
+  CreateApprovalRequest,
+  CreateUserRequest,
+  ReviewApprovalRequest,
+  UpdateUserPermissionsRequest
 } from '@jingcang/contracts';
 
 const API_BASE = '';
@@ -107,5 +115,52 @@ export const api = {
     request<BrowserItem>(`/api/v1/admin/browsers/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updates)
-    })
+    }),
+
+  // User Management
+  getAdminUsers: () =>
+    request<AdminUserItem[]>('/api/v1/admin/users'),
+
+  createAdminUser: (data: CreateUserRequest) =>
+    request<AdminUserItem>('/api/v1/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+
+  toggleUserStatus: (id: string, enabled: boolean) =>
+    request<{ success: boolean }>(`/api/v1/admin/users/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled })
+    }),
+
+  updateUserPermissions: (id: string, data: UpdateUserPermissionsRequest) =>
+    request<{ success: boolean }>(`/api/v1/admin/users/${id}/permissions`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+
+  // Approval Management
+  getAdminApprovals: (query?: { status?: ApprovalStatus; type?: ApprovalType }) => {
+    const params = new URLSearchParams();
+    if (query?.status) params.set('status', query.status);
+    if (query?.type) params.set('type', query.type);
+    const qs = params.toString();
+    return request<ApprovalRequestItem[]>(`/api/v1/admin/approvals${qs ? `?${qs}` : ''}`);
+  },
+
+  reviewApproval: (id: string, data: ReviewApprovalRequest) =>
+    request<ApprovalRequestItem>(`/api/v1/admin/approvals/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+
+  // User-facing Approval Requests
+  submitApprovalRequest: (data: CreateApprovalRequest) =>
+    request<ApprovalRequestItem>('/api/v1/approvals', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+
+  getMyApprovals: () =>
+    request<ApprovalRequestItem[]>('/api/v1/approvals/my')
 };

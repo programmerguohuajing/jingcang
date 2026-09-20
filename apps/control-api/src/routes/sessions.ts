@@ -39,6 +39,17 @@ export function registerSessionRoutes(
       });
     }
 
+    const permCheck = authService.checkUserBrowserPermission(user.id, parse.data.browserId);
+    if (!permCheck.permitted) {
+      return reply.status(403).send({
+        success: false,
+        error: {
+          code: ERROR_CODES.AUTH_FORBIDDEN,
+          message: permCheck.reason || '未获得该浏览器的访问权限，请向管理员申请'
+        }
+      });
+    }
+
     try {
       const session = await orchestrator.createSession(user.id, user.username, parse.data);
       authService.logAudit('SESSION_CREATED', user.id, session.id, { browserId: session.browserId, status: session.status }, request.ip || '127.0.0.1');

@@ -4,7 +4,8 @@ import { api } from '../api/client';
 import { BrowserItem, CreateSessionRequest } from '@jingcang/contracts';
 import { SessionCreateModal } from './SessionCreateModal';
 import { BrowserInstallModal } from './BrowserInstallModal';
-import { Play, CheckCircle2, RefreshCw, Layers, Server, Plus, Box, Power, PowerOff } from 'lucide-react';
+import { BrowserAccessApprovalModal } from './BrowserAccessApprovalModal';
+import { Play, CheckCircle2, RefreshCw, Layers, Server, Plus, Box, Power, PowerOff, KeyRound } from 'lucide-react';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 interface BrowserCatalogPageProps {
@@ -74,6 +75,7 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
   const [notice, setNotice] = useState('');
   const [updatingBrowserId, setUpdatingBrowserId] = useState<string | null>(null);
   const [selectedBrowser, setSelectedBrowser] = useState<BrowserItem | null>(null);
+  const [approvalTargetBrowser, setApprovalTargetBrowser] = useState<BrowserItem | null>(null);
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [pendingBrowserToggle, setPendingBrowserToggle] = useState<BrowserItem | null>(null);
   const [toggleError, setToggleError] = useState('');
@@ -426,9 +428,24 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                             标识 ID: <code>{b.id}</code>
                           </div>
                         </div>
-                        <span className={`badge ${b.enabled ? 'badge-ready' : 'badge-failed'}`}>
-                          {b.enabled ? '可用' : '未启用'}
-                        </span>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          {b.isPermitted === false && (
+                            <span
+                              className="badge"
+                              style={{
+                                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                                color: '#fbbf24',
+                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              需申请授权
+                            </span>
+                          )}
+                          <span className={`badge ${b.enabled ? 'badge-ready' : 'badge-failed'}`}>
+                            {b.enabled ? '可用' : '未启用'}
+                          </span>
+                        </div>
                       </div>
 
                       <div style={{
@@ -527,20 +544,39 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                             {updatingBrowserId === b.id ? '处理中...' : (b.enabled ? '禁用' : '启用')}
                           </button>
                         )}
-                        <button
-                          onClick={() => setSelectedBrowser(b)}
-                          disabled={!b.enabled || updatingBrowserId === b.id}
-                          className="btn-primary"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '6px 14px',
-                            fontSize: '13px'
-                          }}
-                        >
-                          <Play size={14} /> {b.enabled ? '启动测试舱' : '舱位已禁用'}
-                        </button>
+                        {b.isPermitted === false ? (
+                          <button
+                            onClick={() => setApprovalTargetBrowser(b)}
+                            disabled={!b.enabled}
+                            className="btn-secondary"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 14px',
+                              fontSize: '13px',
+                              color: '#fbbf24',
+                              borderColor: 'rgba(245, 158, 11, 0.5)'
+                            }}
+                          >
+                            <KeyRound size={14} /> 申请权限
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setSelectedBrowser(b)}
+                            disabled={!b.enabled || updatingBrowserId === b.id}
+                            className="btn-primary"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 14px',
+                              fontSize: '13px'
+                            }}
+                          >
+                            <Play size={14} /> {b.enabled ? '启动测试舱' : '舱位已禁用'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -556,6 +592,18 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
           browser={selectedBrowser}
           onClose={() => setSelectedBrowser(null)}
           onSubmit={handleStartSession}
+        />
+      )}
+
+      {approvalTargetBrowser && (
+        <BrowserAccessApprovalModal
+          browser={approvalTargetBrowser}
+          onClose={() => setApprovalTargetBrowser(null)}
+          onSubmitted={() => {
+            setApprovalTargetBrowser(null);
+            setNotice('审批申请已提交！管理员审核通过后您即可直接启动此测试舱。');
+            loadBrowsers();
+          }}
         />
       )}
 

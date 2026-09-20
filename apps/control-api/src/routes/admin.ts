@@ -3,13 +3,20 @@ import { Config } from '../config.js';
 import { getDb } from '../db/index.js';
 import { AuthService } from '../services/auth.service.js';
 import { WorkerService } from '../services/worker.service.js';
-import { ERROR_CODES } from '@jingcang/contracts';
+import { ApprovalService } from '../services/approval.service.js';
+import {
+  CreateUserRequestSchema,
+  UpdateUserPermissionsSchema,
+  ReviewApprovalRequestSchema,
+  ERROR_CODES
+} from '@jingcang/contracts';
 
 export function registerAdminRoutes(
   fastify: FastifyInstance,
   config: Config,
   authService: AuthService,
-  workerService: WorkerService
+  workerService: WorkerService,
+  approvalService: ApprovalService
 ) {
   const requireAdmin = (request: any, reply: any) => {
     const token = request.cookies.jc_token || (request.headers.authorization?.replace('Bearer ', ''));
@@ -86,4 +93,151 @@ export function registerAdminRoutes(
 
     return { success: true, data: rows };
   });
+
+  // User Management
+  fastify.get('/api/v1/admin/users', async (request, reply) => {
+    const admin = requireAdmin(request, reply);
+    if (!admin) return;
+
+    const users = authService.listUsers();
+    return { success: true, data: users };
+  });
+
+  fastify.post('/api/v1/admin/users', async (request, reply) => {
+    const admin = requireAdmin(request, reply);
+    if (!admin) return;
+
+    const parsed = CreateUserRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: ERROR_CODES.INVALID_REQUEST,
+          message: '用户参数格式不正确',
+          details: parsed.error.format()
+        }
+      });
+    }
+
+    try {
+      const user = await authService.createUser(
+        parsed.data.username,
+        parsed.data.password,
+        parsed.data.role,
+        request.ip || '127.0.0.1'
+      );
+      return { success: true, data: user };
+    } catch (err: any) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: ERROR_CODES.INVALID_REQUEST, message: err?.message || '创建用户失败' }
+      });
+    }
+  });
+
+  fastify.put('/api/v1/admin/users/:id/status', async (request, reply) => {
+    const admin = requireAdmin(request, reply);
+    if (!admin) return;
+
+    const { id } = request.params as { id: string };
+    const { enabled } = (request.body || {}) as { enabled?: boolean };
+
+    if (typeof enabled !== 'boolean') {
+      return reply.status(400).send({
+        success: false,
+        error: { code: ERROR_CODES.INVALID_REQUEST, message: '必须指定 enabled 状态 (true/false)' }
+      });
+    }
+
+    try {
+      authService.toggleUserStatus(id, enabled, admin.id, request.ip || '127.0.0.1');
+      return { success: true };
+    } catch (err: any) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: ERROR_CODES.INVALID_REQUEST, message: err?.message || '更新用户状态失败' }
+      });
+    }
+  });
+
+  fastify.put('/api/v1/admin/users/:id/permissions', async (request, reply) => {
+    const admin = requireAdmin(request, reply);
+    if (!admin) return;
+
+    const { id } = request.params as { id: string };
+    const parsed = UpdateUserPermissionsSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: ERROR_CODES.INVALID_REQUEST,
+          message: '权限配置格式不正确',
+          details: parsed.error.format()
+        }
+      });
+    }
+
+    try {
+      authService.updateUserBrowserPermissions(
+        id,
+        parsed.data.browserAccessPolicy,
+        parsed.data.allowedBrowserIds,
+        request.ip || '127.0.0.1'
+      );
+      return { success: true };
+    } catch (err: any) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: ERROR_CODES.INVALID_REQUEST, message: err?.message || '更新用户权限失败' }
+      });
+    }
+  });
+
+  // Approvals Management
+  fastify.get('/api/v1/admin/approvals', async (request, reply) => {
+    const admin = requireAdmin(request, reply);
+    if (!admin) return;
+
+    const query = (request.query || {}) as { status?: any; type?: any };
+    const approvals = approvalService.listRequests({
+      status: query.status,
+      type: query.type
+    });
+    return { success: true, data: approvals };
+  });
+
+  fastify.post('/api/v1/admin/approvals/:id/review', async (request, reply) => {
+    const admin = requireAdmin(request, reply);
+    if (!admin) return;
+
+    const { id } = request.params as { id: string };
+    const parsed = ReviewApprovalRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: ERROR_CODES.INVALID_REQUEST,
+          message: '审批参数格式不正确',
+          details: parsed.error.format()
+        }
+      });
+    }
+
+    try {
+      const result = approvalService.reviewRequest(
+        id,
+        admin.id,
+        admin.username,
+        parsed.data,
+        request.ip || '127.0.0.1'
+      );
+      return { success: true, data: result };
+    } catch (err: any) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: ERROR_CODES.INVALID_REQUEST, message: err?.message || '审批操作失败' }
+      });
+    }
+  });
 }
+

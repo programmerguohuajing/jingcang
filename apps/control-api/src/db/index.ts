@@ -35,8 +35,35 @@ function initSchema(db: DatabaseSync) {
       role TEXT NOT NULL DEFAULT 'tester',
       enabled INTEGER NOT NULL DEFAULT 1,
       auth_version INTEGER NOT NULL DEFAULT 1,
+      browser_access_policy TEXT NOT NULL DEFAULT 'ALL',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS user_browser_permissions (
+      user_id TEXT NOT NULL,
+      browser_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, browser_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (browser_id) REFERENCES browser_catalog(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS approval_requests (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      username TEXT NOT NULL,
+      title TEXT NOT NULL,
+      target_id TEXT,
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      review_comment TEXT,
+      reviewed_by TEXT,
+      reviewed_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS browser_catalog (
@@ -120,6 +147,9 @@ function initSchema(db: DatabaseSync) {
   if (!userColumns.some((column) => column.name === 'auth_version')) {
     db.exec('ALTER TABLE users ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 1;');
   }
+  if (!userColumns.some((column) => column.name === 'browser_access_policy')) {
+    db.exec("ALTER TABLE users ADD COLUMN browser_access_policy TEXT NOT NULL DEFAULT 'ALL';");
+  }
 
   const sessionColumns = db.prepare('PRAGMA table_info(sessions)').all() as Array<{ name: string }>;
   if (!sessionColumns.some((column) => column.name === 'last_activity_at')) {
@@ -145,5 +175,8 @@ function initSchema(db: DatabaseSync) {
       ON browser_install_jobs(user_id, created_at DESC);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_browser_catalog_vendor_version
       ON browser_catalog(browser_name, version);
+    CREATE INDEX IF NOT EXISTS idx_approval_requests_status ON approval_requests(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_approval_requests_user ON approval_requests(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_user_browser_permissions_user ON user_browser_permissions(user_id);
   `);
 }

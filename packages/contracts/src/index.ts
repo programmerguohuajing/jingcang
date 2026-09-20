@@ -74,9 +74,74 @@ export const BrowserItemSchema = z.object({
     cpus: z.number().default(2),
     memory: z.string().default('3g'),
     shmSize: z.string().default('2g')
-  }).optional()
+  }).optional(),
+  isPermitted: z.boolean().optional()
 });
 export type BrowserItem = z.infer<typeof BrowserItemSchema>;
+
+export const BROWSER_ACCESS_POLICIES = ['ALL', 'CUSTOM'] as const;
+export type BrowserAccessPolicy = (typeof BROWSER_ACCESS_POLICIES)[number];
+
+export interface AdminUserItem {
+  id: string;
+  username: string;
+  role: UserRole;
+  enabled: boolean;
+  browserAccessPolicy: BrowserAccessPolicy;
+  allowedBrowserIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const CreateUserRequestSchema = z.object({
+  username: z.string().trim().min(3, '用户名至少3位').max(64, '用户名过长').regex(/^[a-zA-Z0-9_-]+$/, '用户名只能包含字母、数字、下划线与连字符'),
+  password: z.string().min(6, '密码至少6位').max(512, '密码过长'),
+  role: z.enum(USER_ROLES).default('tester')
+});
+export type CreateUserRequest = z.infer<typeof CreateUserRequestSchema>;
+
+export const UpdateUserPermissionsSchema = z.object({
+  browserAccessPolicy: z.enum(BROWSER_ACCESS_POLICIES),
+  allowedBrowserIds: z.array(z.string()).default([])
+});
+export type UpdateUserPermissionsRequest = z.infer<typeof UpdateUserPermissionsSchema>;
+
+// Approval Schemas
+export const APPROVAL_TYPES = ['BROWSER_ACCESS', 'BROWSER_INSTALL'] as const;
+export type ApprovalType = (typeof APPROVAL_TYPES)[number];
+
+export const APPROVAL_STATUSES = ['PENDING', 'APPROVED', 'REJECTED'] as const;
+export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
+
+export interface ApprovalRequestItem {
+  id: string;
+  type: ApprovalType;
+  userId: string;
+  username: string;
+  title: string;
+  targetId: string | null;
+  reason: string;
+  status: ApprovalStatus;
+  reviewComment: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const CreateApprovalRequestSchema = z.object({
+  type: z.enum(APPROVAL_TYPES),
+  targetId: z.string().trim().min(1, '目标标识不能为空').max(256),
+  title: z.string().trim().min(1, '标题不能为空').max(256).optional(),
+  reason: z.string().trim().min(1, '申请原因不能为空').max(1024)
+});
+export type CreateApprovalRequest = z.infer<typeof CreateApprovalRequestSchema>;
+
+export const ReviewApprovalRequestSchema = z.object({
+  action: z.enum(['APPROVE', 'REJECT']),
+  comment: z.string().trim().max(1024).optional()
+});
+export type ReviewApprovalRequest = z.infer<typeof ReviewApprovalRequestSchema>;
 
 export const CatalogUpdateSchema = z.object({
   enabled: z.boolean().optional(),

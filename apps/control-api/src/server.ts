@@ -14,6 +14,7 @@ import { OrchestratorService } from './services/orchestrator.service.js';
 import { ViewerGatewayService } from './services/viewer-gateway.service.js';
 import { WorkerService } from './services/worker.service.js';
 import { BrowserProvisioningService } from './services/browser-provisioning.service.js';
+import { ApprovalService } from './services/approval.service.js';
 
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerBrowserRoutes } from './routes/browsers.js';
@@ -35,6 +36,7 @@ async function main() {
   const catalogService = new CatalogService(config);
   catalogService.loadAndSyncCatalog();
   const browserProvisioningService = new BrowserProvisioningService(config, catalogService);
+  const approvalService = new ApprovalService(config, authService, catalogService, browserProvisioningService);
 
   const orchestrator = new OrchestratorService(config, catalogService);
   const viewerGateway = new ViewerGatewayService(config, orchestrator);
@@ -85,9 +87,9 @@ async function main() {
 
   // Register REST & Viewer Gateway routes
   registerAuthRoutes(server, authService, config);
-  registerBrowserRoutes(server, catalogService, authService, browserProvisioningService);
+  registerBrowserRoutes(server, catalogService, authService, browserProvisioningService, approvalService);
   registerSessionRoutes(server, orchestrator, viewerGateway, authService);
-  registerAdminRoutes(server, config, authService, workerService);
+  registerAdminRoutes(server, config, authService, workerService, approvalService);
   registerHealthRoutes(server, config);
   registerViewerRoutes(server, viewerGateway, orchestrator);
   registerArtifactRoutes(server, config, authService);

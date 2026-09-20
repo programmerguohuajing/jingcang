@@ -2,13 +2,20 @@ import { FastifyInstance } from 'fastify';
 import { CatalogService } from '../services/catalog.service.js';
 import { AuthService } from '../services/auth.service.js';
 import { BrowserProvisioningService } from '../services/browser-provisioning.service.js';
-import { BrowserInstallRequestSchema, CatalogUpdateSchema, ERROR_CODES } from '@jingcang/contracts';
+import { ApprovalService } from '../services/approval.service.js';
+import {
+  BrowserInstallRequestSchema,
+  CatalogUpdateSchema,
+  CreateApprovalRequestSchema,
+  ERROR_CODES
+} from '@jingcang/contracts';
 
 export function registerBrowserRoutes(
   fastify: FastifyInstance,
   catalogService: CatalogService,
   authService: AuthService,
-  browserProvisioningService: BrowserProvisioningService
+  browserProvisioningService: BrowserProvisioningService,
+  approvalService: ApprovalService
 ) {
   const getUser = (request: any) => {
     const token = request.cookies.jc_token || (request.headers.authorization?.replace('Bearer ', ''));
@@ -17,7 +24,79 @@ export function registerBrowserRoutes(
 
   fastify.get('/api/v1/browsers', async (request, reply) => {
     const items = catalogService.getCatalogItems(true);
+    const user = getUser(request);
+
+    if (user) {
+      if (user.role === 'admin') {
+        items.forEach((item) => {
+          item.isPermitted = true;
+        });
+      } else {
+        const allowed = authService.getUserAllowedBrowsers(user.id);
+        if (allowed.policy === 'ALL') {
+          items.forEach((item) => {
+            item.isPermitted = true;
+          });
+        } else {
+          const allowedSet = new Set(allowed.allowedBrowserIds);
+          items.forEach((item) => {
+            item.isPermitted = allowedSet.has(item.id);
+          });
+        }
+      }
+    } else {
+      items.forEach((item) => {
+        item.isPermitted = true;
+      });
+    }
+
     return { success: true, data: items };
+  });
+
+  // User-facing Approval Routes
+  fastify.post('/api/v1/approvals', async (request, reply) => {
+    const user = getUser(request);
+    if (!user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.AUTH_UNAUTHORIZED, message: '请先登录后再提交审批申请' }
+      });
+    }
+
+    const parsed = CreateApprovalRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: ERROR_CODES.INVALID_REQUEST,
+          message: '审批申请参数格式不正确',
+          details: parsed.error.format()
+        }
+      });
+    }
+
+    try {
+      const item = approvalService.createRequest(user.id, user.username, parsed.data);
+      return reply.status(201).send({ success: true, data: item });
+    } catch (err: any) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: ERROR_CODES.INVALID_REQUEST, message: err?.message || '提交审批申请失败' }
+      });
+    }
+  });
+
+  fastify.get('/api/v1/approvals/my', async (request, reply) => {
+    const user = getUser(request);
+    if (!user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.AUTH_UNAUTHORIZED, message: '请先登录' }
+      });
+    }
+
+    const list = approvalService.listRequests({ userId: user.id });
+    return { success: true, data: list };
   });
 
   fastify.get('/api/v1/admin/browsers', async (request, reply) => {
