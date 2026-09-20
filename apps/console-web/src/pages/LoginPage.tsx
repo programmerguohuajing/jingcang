@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { Lock, User } from 'lucide-react';
 import { Logo } from '../components/Logo';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 interface LoginPageProps {
   onLoginSuccess: (user: { username: string; role: string }) => void;
@@ -37,8 +38,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       minHeight: '100vh',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#0f172a'
+      backgroundColor: 'var(--bg-app, #0f172a)',
+      position: 'relative',
+      padding: '20px',
+      transition: 'background-color 0.2s ease'
     }}>
+      <div style={{ position: 'absolute', top: '20px', right: '24px' }}>
+        <ThemeToggle />
+      </div>
+
       <div className="card" style={{ width: '100%', maxWidth: '400px' }}>
         <div style={{ textAlign: 'center', marginBottom: '28px' }}>
           <Logo variant="vertical" size={38} glow />
@@ -46,9 +54,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
         {error && (
           <div style={{
-            backgroundColor: 'rgba(220, 38, 38, 0.2)',
+            backgroundColor: 'rgba(220, 38, 38, 0.1)',
             border: '1px solid #dc2626',
-            color: '#f87171',
+            color: '#ef4444',
             padding: '10px 14px',
             borderRadius: '6px',
             fontSize: '14px',
@@ -60,7 +68,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: '#cbd5e1' }}>用户名</label>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: 'var(--text-muted, #cbd5e1)' }}>用户名</label>
             <div style={{ position: 'relative' }}>
               <input
                 type="text"
@@ -73,7 +81,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: '#cbd5e1' }}>密码</label>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: 'var(--text-muted, #cbd5e1)' }}>密码</label>
             <input
               type="password"
               value={password}
@@ -88,7 +96,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </button>
         </form>
 
-        <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>
+        <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-subtle, #64748b)' }}>
           完全本地化部署 · 无数据上云
         </div>
       </div>

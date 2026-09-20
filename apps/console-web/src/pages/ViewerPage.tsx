@@ -6,6 +6,7 @@ import { SessionResponse } from '@jingcang/contracts';
 import { Maximize2, Clock, Square, AlertTriangle, RefreshCw, Monitor, Scaling, Calculator } from 'lucide-react';
 import { getStatusBadge } from './SessionListPage';
 import { LogoIcon } from '../components/Logo';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 // Numeric keypad mapping tables
 // Maps Numpad digits to standard ASCII keysyms (0x30 - 0x39) so that remote X11/VNC
@@ -63,6 +64,9 @@ export const ViewerPage: React.FC = () => {
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [scaleMode, setScaleMode] = useState<'fit' | 'original'>('fit');
   const [numpadMode, setNumpadMode] = useState<'digit' | 'nav'>('digit');
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
+  const [endConfirmLoading, setEndConfirmLoading] = useState(false);
+  const [endConfirmError, setEndConfirmError] = useState('');
   const numpadModeRef = useRef<'digit' | 'nav'>('digit');
   numpadModeRef.current = numpadMode;
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -314,15 +318,24 @@ export const ViewerPage: React.FC = () => {
     }
   };
 
-  const handleEndSession = async () => {
-    if (!sessionId) return;
-    if (!window.confirm('确认立即结束此测试舱？所有未保存的临时数据将被清空释放。')) return;
+  const handleEndSession = () => {
+    if (!sessionId || isEnded) return;
+    setEndConfirmError('');
+    setEndConfirmOpen(true);
+  };
 
+  const confirmEndSession = async () => {
+    if (!sessionId) return;
+    setEndConfirmLoading(true);
+    setEndConfirmError('');
     try {
       await api.terminateSession(sessionId);
+      setEndConfirmOpen(false);
       navigate('/sessions');
     } catch (err: any) {
-      alert(err.message || '结束测试舱失败');
+      setEndConfirmError(err.message || '结束测试舱失败');
+    } finally {
+      setEndConfirmLoading(false);
     }
   };
 
@@ -363,17 +376,17 @@ export const ViewerPage: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', backgroundColor: '#020617' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)', backgroundColor: 'var(--bg-app)' }}>
       <div style={{
-        backgroundColor: '#0f172a',
-        borderBottom: '1px solid #1e293b',
+        backgroundColor: 'var(--bg-surface)',
+        borderBottom: '1px solid var(--border-color)',
         padding: '8px 24px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span style={{ fontWeight: 'bold', fontSize: '16px', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontWeight: 'bold', fontSize: '16px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <LogoIcon size={18} /> {session.browserName.toUpperCase()} v{session.browserVersion}
           </span>
           {getStatusBadge(session.status)}
@@ -382,7 +395,7 @@ export const ViewerPage: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              backgroundColor: '#1e293b',
+              backgroundColor: 'var(--bg-subtle)',
               color: '#38bdf8',
               padding: '3px 8px',
               borderRadius: '6px',
@@ -393,7 +406,7 @@ export const ViewerPage: React.FC = () => {
               <span>{session.screen.width} × {session.screen.height}</span>
             </div>
           ) : null}
-          <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
             启动目标: <code style={{ color: '#38bdf8' }}>{session.startUrl}</code>
           </span>
         </div>
@@ -403,8 +416,8 @@ export const ViewerPage: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            backgroundColor: remainingSeconds < 300 ? 'rgba(220, 38, 38, 0.2)' : '#1e293b',
-            color: remainingSeconds < 300 ? '#f87171' : '#f8fafc',
+            backgroundColor: remainingSeconds < 300 ? 'rgba(220, 38, 38, 0.2)' : 'var(--bg-subtle)',
+            color: remainingSeconds < 300 ? '#f87171' : 'var(--text-main)',
             padding: '4px 10px',
             borderRadius: '6px',
             fontSize: '14px'
@@ -422,9 +435,9 @@ export const ViewerPage: React.FC = () => {
               gap: '6px',
               padding: '4px 10px',
               fontSize: '12px',
-              backgroundColor: scaleMode === 'original' ? '#0284c7' : '#1e293b',
-              borderColor: scaleMode === 'original' ? '#38bdf8' : '#334155',
-              color: '#f8fafc'
+              backgroundColor: scaleMode === 'original' ? '#0284c7' : 'var(--bg-subtle)',
+              borderColor: scaleMode === 'original' ? '#38bdf8' : 'var(--border-color)',
+              color: 'var(--text-main)'
             }}
             title={scaleMode === 'fit' ? '当前为窗口缩放适配，点击切换为 1:1 原始尺寸' : '当前为 1:1 原始像素，点击切换为窗口缩放适配'}
           >
@@ -441,9 +454,9 @@ export const ViewerPage: React.FC = () => {
               gap: '6px',
               padding: '4px 10px',
               fontSize: '12px',
-              backgroundColor: numpadMode === 'digit' ? 'rgba(22, 101, 52, 0.4)' : '#1e293b',
-              borderColor: numpadMode === 'digit' ? '#22c55e' : '#334155',
-              color: numpadMode === 'digit' ? '#4ade80' : '#94a3b8'
+              backgroundColor: numpadMode === 'digit' ? 'rgba(22, 101, 52, 0.4)' : 'var(--bg-subtle)',
+              borderColor: numpadMode === 'digit' ? '#22c55e' : 'var(--border-color)',
+              color: numpadMode === 'digit' ? '#4ade80' : 'var(--text-muted)'
             }}
             title={
               numpadMode === 'digit'
@@ -548,6 +561,24 @@ export const ViewerPage: React.FC = () => {
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={endConfirmOpen}
+        tone="danger"
+        eyebrow="实时会话终止确认"
+        title="立即结束当前测试舱？"
+        description="远程画面将立即断开，底层浏览器容器会被回收，当前测试舱内尚未保存的临时数据将永久丢失。"
+        subject={session ? `${session.browserName} v${session.browserVersion} · ${session.id}` : sessionId}
+        confirmLabel="确认结束并释放资源"
+        loading={endConfirmLoading}
+        error={endConfirmError}
+        onConfirm={confirmEndSession}
+        onCancel={() => {
+          if (endConfirmLoading) return;
+          setEndConfirmOpen(false);
+          setEndConfirmError('');
+        }}
+      />
     </div>
   );
 };

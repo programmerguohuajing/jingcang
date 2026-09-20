@@ -140,7 +140,7 @@ export const SessionCreateModal: React.FC<SessionCreateModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h2 style={{ margin: 0, fontSize: '18px', color: '#f8fafc' }}>
+          <h2 style={{ margin: 0, fontSize: '18px', color: 'var(--text-main)' }}>
             🚀 启动测试舱 — {browser.displayName} ({browser.version})
           </h2>
           <button onClick={onClose} className="btn-secondary" style={{ padding: '4px 10px' }}>✕</button>
@@ -162,7 +162,7 @@ export const SessionCreateModal: React.FC<SessionCreateModalProps> = ({
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '13px', color: '#cbd5e1', marginBottom: '4px' }}>
+            <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>
               启动网址 (Start URL)
             </label>
             <input
@@ -206,7 +206,7 @@ export const SessionCreateModal: React.FC<SessionCreateModalProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <label style={{ fontSize: '13px', color: '#cbd5e1' }}>
+                <label style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                   画面分辨率
                 </label>
                 <span style={{ fontSize: '11px', color: '#38bdf8' }}>
@@ -245,7 +245,7 @@ export const SessionCreateModal: React.FC<SessionCreateModalProps> = ({
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: '13px', color: '#cbd5e1', marginBottom: '4px' }}>
+              <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>
                 会话时长 (分钟)
               </label>
               <select
@@ -263,23 +263,23 @@ export const SessionCreateModal: React.FC<SessionCreateModalProps> = ({
           {selectedResolutionKey === 'custom' && (
             <div style={{
               padding: '12px 14px',
-              backgroundColor: '#1e293b',
+              backgroundColor: 'var(--bg-subtle)',
               borderRadius: '8px',
-              border: '1px solid #3b82f6',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+              border: '1px solid var(--primary-color)',
+              boxShadow: 'var(--card-shadow)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '13px', color: '#f8fafc', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Sliders size={15} style={{ color: '#38bdf8' }} /> 自定义分辨率规格
                 </span>
-                <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                   支持范围: 320~5120 × 240~3840
                 </span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr auto', gap: '10px', alignItems: 'center' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '2px' }}>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>
                     宽度 (Width px)
                   </label>
                   <input
@@ -297,12 +297,12 @@ export const SessionCreateModal: React.FC<SessionCreateModalProps> = ({
                   />
                 </div>
 
-                <div style={{ color: '#64748b', fontWeight: 'bold', paddingTop: '16px', fontSize: '16px' }}>
+                <div style={{ color: 'var(--text-muted)', fontWeight: 'bold', paddingTop: '16px', fontSize: '16px' }}>
                   ×
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '11px', color: '#94a3b8', marginBottom: '2px' }}>
+                  <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>
                     高度 (Height px)
                   </label>
                   <input
@@ -339,7 +339,7 @@ export const SessionCreateModal: React.FC<SessionCreateModalProps> = ({
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '10px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '11px', color: '#64748b' }}>快速比例:</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>快速比例:</span>
                 {[
                   { label: '16:9 高清', w: 1920, h: 1080 },
                   { label: '16:10 办公', w: 1920, h: 1200 },
@@ -361,9 +361,9 @@ export const SessionCreateModal: React.FC<SessionCreateModalProps> = ({
                       fontSize: '11px',
                       padding: '2px 8px',
                       borderRadius: '4px',
-                      backgroundColor: customWidth === p.w && customHeight === p.h ? '#2563eb' : '#334155',
-                      color: customWidth === p.w && customHeight === p.h ? '#ffffff' : '#cbd5e1',
-                      border: 'none',
+                      backgroundColor: customWidth === p.w && customHeight === p.h ? 'var(--primary-color)' : 'var(--bg-app)',
+                      color: customWidth === p.w && customHeight === p.h ? '#ffffff' : 'var(--text-muted)',
+                      border: '1px solid var(--border-color)',
                       cursor: 'pointer'
                     }}
                   >
@@ -375,7 +375,7 @@ export const SessionCreateModal: React.FC<SessionCreateModalProps> = ({
           )}
 
           <div>
-            <label style={{ display: 'block', fontSize: '13px', color: '#cbd5e1', marginBottom: '4px' }}>
+            <label style={{ display: 'block', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>
               测试舱备注名称
             </label>
             <input

@@ -56,13 +56,6 @@ export function registerBrowserRoutes(
         error: { code: ERROR_CODES.AUTH_UNAUTHORIZED, message: '请先登录后再添加浏览器版本' }
       });
     }
-    if (user.role !== 'admin') {
-      return reply.status(403).send({
-        success: false,
-        error: { code: ERROR_CODES.AUTH_FORBIDDEN, message: '增加浏览器版本需要管理员权限' }
-      });
-    }
-
     const parsed = BrowserInstallRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({
@@ -110,10 +103,10 @@ export function registerBrowserRoutes(
         error: { code: ERROR_CODES.INVALID_REQUEST, message: '浏览器安装任务不存在' }
       });
     }
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && ownerId !== user.id) {
       return reply.status(403).send({
         success: false,
-        error: { code: ERROR_CODES.AUTH_FORBIDDEN, message: '查看浏览器安装任务需要管理员权限' }
+        error: { code: ERROR_CODES.AUTH_FORBIDDEN, message: '无权查看此浏览器安装任务' }
       });
     }
 

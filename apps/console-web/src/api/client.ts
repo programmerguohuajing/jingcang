@@ -79,6 +79,12 @@ export const api = {
   deleteSession: (id: string) =>
     request(`/api/v1/sessions/${id}?permanent=true`, { method: 'DELETE' }),
 
+  batchDeleteSessions: (ids: string[]) =>
+    request<{ total: number; deleted: number; failed: number }>('/api/v1/sessions/batch-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids })
+    }),
+
   extendSession: (id: string, extendMinutes = 30) =>
     request<SessionResponse>(`/api/v1/sessions/${id}/extend`, {
       method: 'POST',

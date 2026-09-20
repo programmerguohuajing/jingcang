@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
-import { Monitor, Compass, ShieldAlert, LogOut, Terminal } from 'lucide-react';
+import { Monitor, Compass, ShieldAlert, LogOut } from 'lucide-react';
 import { Logo } from './Logo';
+import { ThemeToggle } from './ThemeToggle';
 
 interface NavbarProps {
   user: { username: string; role: string } | null;
@@ -27,13 +28,15 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
 
   return (
     <nav style={{
-      backgroundColor: '#1e293b',
-      borderBottom: '1px solid #334155',
+      backgroundColor: 'var(--nav-bg, #1e293b)',
+      borderBottom: '1px solid var(--nav-border, #334155)',
       padding: '0 24px',
       height: '64px',
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'space-between'
+      justifyContent: 'space-between',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+      transition: 'background-color 0.2s ease, border-color 0.2s ease'
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
         <Link to="/browsers" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
@@ -50,9 +53,10 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               padding: '8px 14px',
               borderRadius: '6px',
               textDecoration: 'none',
-              color: location.pathname === '/browsers' ? '#38bdf8' : '#94a3b8',
-              backgroundColor: location.pathname === '/browsers' ? '#0f172a' : 'transparent',
-              fontWeight: 500
+              color: location.pathname === '/browsers' ? 'var(--primary-color, #0284c7)' : 'var(--text-muted, #94a3b8)',
+              backgroundColor: location.pathname === '/browsers' ? 'var(--bg-subtle, #f1f5f9)' : 'transparent',
+              fontWeight: 500,
+              transition: 'all 0.15s ease'
             }}
           >
             <Compass size={18} />
@@ -68,9 +72,10 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               padding: '8px 14px',
               borderRadius: '6px',
               textDecoration: 'none',
-              color: location.pathname === '/sessions' ? '#38bdf8' : '#94a3b8',
-              backgroundColor: location.pathname === '/sessions' ? '#0f172a' : 'transparent',
-              fontWeight: 500
+              color: location.pathname === '/sessions' ? 'var(--primary-color, #0284c7)' : 'var(--text-muted, #94a3b8)',
+              backgroundColor: location.pathname === '/sessions' ? 'var(--bg-subtle, #f1f5f9)' : 'transparent',
+              fontWeight: 500,
+              transition: 'all 0.15s ease'
             }}
           >
             <Monitor size={18} />
@@ -87,9 +92,10 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                 padding: '8px 14px',
                 borderRadius: '6px',
                 textDecoration: 'none',
-                color: location.pathname === '/admin' ? '#38bdf8' : '#94a3b8',
-                backgroundColor: location.pathname === '/admin' ? '#0f172a' : 'transparent',
-                fontWeight: 500
+                color: location.pathname === '/admin' ? 'var(--primary-color, #0284c7)' : 'var(--text-muted, #94a3b8)',
+                backgroundColor: location.pathname === '/admin' ? 'var(--bg-subtle, #f1f5f9)' : 'transparent',
+                fontWeight: 500,
+                transition: 'all 0.15s ease'
               }}
             >
               <ShieldAlert size={18} />
@@ -100,8 +106,9 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <span style={{ fontSize: '14px', color: '#cbd5e1' }}>
-          👤 {user.username} <span style={{ fontSize: '12px', color: '#64748b' }}>({user.role})</span>
+        <ThemeToggle />
+        <span style={{ fontSize: '14px', color: 'var(--text-main, #cbd5e1)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          👤 {user.username} <span style={{ fontSize: '12px', color: 'var(--text-subtle, #64748b)' }}>({user.role})</span>
         </span>
         <button
           onClick={handleLogout}

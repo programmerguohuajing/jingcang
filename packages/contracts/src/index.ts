@@ -165,6 +165,11 @@ export const ExtendSessionRequestSchema = z.object({
 });
 export type ExtendSessionRequest = z.infer<typeof ExtendSessionRequestSchema>;
 
+export const BatchDeleteSessionsRequestSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1, '请至少选择一个测试舱记录')
+});
+export type BatchDeleteSessionsRequest = z.infer<typeof BatchDeleteSessionsRequestSchema>;
+
 export interface SessionResponse {
   id: string;
   seleniumSessionId: string | null;

@@ -6,6 +6,7 @@ import {
   CreateSessionRequestSchema,
   SessionQuerySchema,
   ExtendSessionRequestSchema,
+  BatchDeleteSessionsRequestSchema,
   ERROR_CODES
 } from '@jingcang/contracts';
 
@@ -144,6 +145,48 @@ export function registerSessionRoutes(
         error: { code: err.code || ERROR_CODES.INTERNAL_ERROR, message: err.message || '操作测试舱失败' }
       });
     }
+  });
+
+  fastify.post('/api/v1/sessions/batch-delete', async (request, reply) => {
+    const user = getUser(request);
+    if (!user) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: ERROR_CODES.AUTH_UNAUTHORIZED, message: '请先登录' }
+      });
+    }
+
+    const parse = BatchDeleteSessionsRequestSchema.safeParse(request.body);
+    if (!parse.success) {
+      return reply.status(400).send({
+        success: false,
+        error: { code: ERROR_CODES.INVALID_REQUEST, message: '请提供有效的测试舱 ID 列表', details: parse.error.format() }
+      });
+    }
+
+    const isAdmin = user.role === 'admin';
+    const ids = parse.data.ids;
+    const results: { id: string; success: boolean; error?: string }[] = [];
+
+    for (const id of ids) {
+      try {
+        await orchestrator.deleteSessionRecord(id, user.id, isAdmin);
+        authService.logAudit('SESSION_DELETED', user.id, id, null, request.ip || '127.0.0.1');
+        results.push({ id, success: true });
+      } catch (err: any) {
+        results.push({ id, success: false, error: err?.message || '删除失败' });
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        total: ids.length,
+        deleted: results.filter((r) => r.success).length,
+        failed: results.filter((r) => !r.success).length,
+        results
+      }
+    };
   });
 
   fastify.post('/api/v1/sessions/:id/extend', async (request, reply) => {

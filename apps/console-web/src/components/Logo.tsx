@@ -201,7 +201,7 @@ export const Logo: React.FC<LogoProps> = ({
               fontSize: `${Math.round(size * 0.7)}px`,
               fontWeight: 700,
               letterSpacing: '1px',
-              color: '#f8fafc',
+              color: 'var(--text-main, #0f172a)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -260,7 +260,7 @@ export const Logo: React.FC<LogoProps> = ({
               fontSize: `${Math.round(size * 0.54)}px`,
               fontWeight: 700,
               letterSpacing: '0.5px',
-              color: '#f8fafc'
+              color: 'var(--text-main, #0f172a)'
             }}
           >
             镜舱

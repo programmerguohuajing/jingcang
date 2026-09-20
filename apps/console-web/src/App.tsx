@@ -7,6 +7,7 @@ import { ViewerPage } from './pages/ViewerPage';
 import { SessionListPage } from './pages/SessionListPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { api } from './api/client';
+import { ThemeProvider } from './context/ThemeContext';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<{ username: string; role: string } | null>(null);
@@ -20,11 +21,12 @@ export const App: React.FC = () => {
   }, []);
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '100px 0', color: '#94a3b8' }}>正在加载镜舱 (JingCang)...</div>;
+    return <div style={{ textAlign: 'center', padding: '100px 0', color: 'var(--text-muted, #94a3b8)' }}>正在加载镜舱 (JingCang)...</div>;
   }
 
   return (
-    <BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
       {user && <Navbar user={user} onLogout={() => setUser(null)} />}
       <Routes>
         <Route
@@ -50,5 +52,6 @@ export const App: React.FC = () => {
         <Route path="*" element={<Navigate to={user ? "/browsers" : "/login"} replace />} />
       </Routes>
     </BrowserRouter>
+  </ThemeProvider>
   );
 };

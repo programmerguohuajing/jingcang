@@ -5,6 +5,7 @@ import { BrowserItem, CreateSessionRequest } from '@jingcang/contracts';
 import { SessionCreateModal } from './SessionCreateModal';
 import { BrowserInstallModal } from './BrowserInstallModal';
 import { Play, CheckCircle2, RefreshCw, Layers, Server, Plus, Box, Power, PowerOff } from 'lucide-react';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 interface BrowserCatalogPageProps {
   isAdmin: boolean;
@@ -74,6 +75,8 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
   const [updatingBrowserId, setUpdatingBrowserId] = useState<string | null>(null);
   const [selectedBrowser, setSelectedBrowser] = useState<BrowserItem | null>(null);
   const [showInstallModal, setShowInstallModal] = useState(false);
+  const [pendingBrowserToggle, setPendingBrowserToggle] = useState<BrowserItem | null>(null);
+  const [toggleError, setToggleError] = useState('');
   const [activeVendorTab, setActiveVendorTab] = useState<string>('all');
   const navigate = useNavigate();
 
@@ -104,11 +107,12 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
       const updated = await api.updateBrowserCatalog(browser.id, { enabled: nextEnabled });
       setBrowsers((current) => current.map((item) => item.id === updated.id ? updated : item));
       setNotice(`${updated.displayName} 已${updated.enabled ? '启用' : '禁用'}`);
+      setPendingBrowserToggle(null);
       if (!updated.enabled && selectedBrowser?.id === updated.id) {
         setSelectedBrowser(null);
       }
     } catch (err: any) {
-      setError(err.message || `${nextEnabled ? '启用' : '禁用'}浏览器舱位失败`);
+      setToggleError(err.message || `${nextEnabled ? '启用' : '禁用'}浏览器舱位失败`);
     } finally {
       setUpdatingBrowserId(null);
     }
@@ -168,19 +172,20 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h1 style={{ fontSize: '24px', margin: 0, color: '#f8fafc' }}>浏览器舱位矩阵</h1>
+            <h1 style={{ fontSize: '24px', margin: 0, color: 'var(--text-main, #f8fafc)' }}>浏览器舱位矩阵</h1>
             <span style={{
               fontSize: '12px',
-              backgroundColor: '#1e293b',
-              color: '#38bdf8',
-              padding: '2px 8px',
+              backgroundColor: 'var(--bg-subtle, #1e293b)',
+              color: 'var(--primary-color, #38bdf8)',
+              border: '1px solid var(--border-color, #334155)',
+              padding: '2px 10px',
               borderRadius: '999px',
               fontWeight: 500
             }}>
               {groupedVendors.length} 个内核厂商 · {browsers.length} 个版本规格
             </span>
           </div>
-          <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '6px' }}>
+          <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '14px', marginTop: '6px' }}>
             已按浏览器厂商与内核引擎独立分组。选择目标版本可一键启动完全隔离的沙盒测试舱。
           </p>
         </div>
@@ -188,22 +193,21 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
           <button onClick={loadBrowsers} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <RefreshCw size={16} /> 刷新舱位
           </button>
-          {isAdmin && (
-            <button
-              onClick={() => setShowInstallModal(true)}
-              className="btn-primary add-browser-version-button"
-            >
-              <Plus size={16} /> 增加浏览器版本
-            </button>
-          )}
+          <button
+            onClick={() => setShowInstallModal(true)}
+            className="btn-primary add-browser-version-button"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={16} /> 增加浏览器版本
+          </button>
         </div>
       </div>
 
       {error && (
         <div style={{
-          backgroundColor: 'rgba(220, 38, 38, 0.2)',
+          backgroundColor: 'rgba(220, 38, 38, 0.1)',
           border: '1px solid #dc2626',
-          color: '#f87171',
+          color: '#ef4444',
           padding: '12px 16px',
           borderRadius: '8px',
           marginBottom: '20px'
@@ -214,9 +218,9 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
 
       {notice && (
         <div style={{
-          backgroundColor: 'rgba(5, 150, 105, 0.16)',
+          backgroundColor: 'rgba(5, 150, 105, 0.12)',
           border: '1px solid #059669',
-          color: '#6ee7b7',
+          color: '#10b981',
           padding: '12px 16px',
           borderRadius: '8px',
           marginBottom: '20px'
@@ -234,7 +238,7 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
           overflowX: 'auto',
           paddingBottom: '8px',
           marginBottom: '28px',
-          borderBottom: '1px solid #1e293b'
+          borderBottom: '1px solid var(--border-color, #1e293b)'
         }}>
           <button
             onClick={() => setActiveVendorTab('all')}
@@ -247,9 +251,9 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
               fontSize: '13px',
               fontWeight: 500,
               cursor: 'pointer',
-              border: activeVendorTab === 'all' ? '1px solid #3b82f6' : '1px solid transparent',
-              backgroundColor: activeVendorTab === 'all' ? '#1e293b' : 'transparent',
-              color: activeVendorTab === 'all' ? '#38bdf8' : '#94a3b8',
+              border: activeVendorTab === 'all' ? '1px solid var(--primary-color, #0284c7)' : '1px solid transparent',
+              backgroundColor: activeVendorTab === 'all' ? 'var(--bg-surface, #1e293b)' : 'transparent',
+              color: activeVendorTab === 'all' ? 'var(--primary-color, #38bdf8)' : 'var(--text-muted, #94a3b8)',
               transition: 'all 0.15s ease'
             }}
           >
@@ -259,8 +263,8 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
               fontSize: '11px',
               padding: '1px 6px',
               borderRadius: '999px',
-              backgroundColor: activeVendorTab === 'all' ? 'rgba(56, 189, 248, 0.2)' : '#1e293b',
-              color: activeVendorTab === 'all' ? '#38bdf8' : '#64748b'
+              backgroundColor: activeVendorTab === 'all' ? 'var(--primary-light-bg, rgba(56, 189, 248, 0.2))' : 'var(--bg-subtle, #1e293b)',
+              color: activeVendorTab === 'all' ? 'var(--primary-color, #38bdf8)' : 'var(--text-subtle, #64748b)'
             }}>
               {browsers.length}
             </span>
@@ -282,8 +286,8 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                   fontWeight: 500,
                   cursor: 'pointer',
                   border: isActive ? `1px solid ${group.meta.badgeColor}` : '1px solid transparent',
-                  backgroundColor: isActive ? '#1e293b' : 'transparent',
-                  color: isActive ? '#f8fafc' : '#94a3b8',
+                  backgroundColor: isActive ? 'var(--bg-surface, #1e293b)' : 'transparent',
+                  color: isActive ? 'var(--text-main, #f8fafc)' : 'var(--text-muted, #94a3b8)',
                   transition: 'all 0.15s ease'
                 }}
               >
@@ -293,8 +297,8 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                   fontSize: '11px',
                   padding: '1px 6px',
                   borderRadius: '999px',
-                  backgroundColor: isActive ? group.meta.badgeBg : '#1e293b',
-                  color: isActive ? group.meta.badgeColor : '#64748b'
+                  backgroundColor: isActive ? group.meta.badgeBg : 'var(--bg-subtle, #1e293b)',
+                  color: isActive ? group.meta.badgeColor : 'var(--text-subtle, #64748b)'
                 }}>
                   {group.items.length}
                 </span>
@@ -305,7 +309,7 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
       )}
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '80px 0', color: '#94a3b8' }}>
+        <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--text-muted, #94a3b8)' }}>
           正在加载多厂商浏览器舱位列表...
         </div>
       ) : (
@@ -326,11 +330,11 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
             <section
               key={group.meta.key}
               style={{
-                backgroundColor: 'rgba(15, 23, 42, 0.4)',
-                border: '1px solid #1e293b',
+                backgroundColor: 'var(--bg-surface, rgba(15, 23, 42, 0.4))',
+                border: '1px solid var(--border-color, #1e293b)',
                 borderRadius: '12px',
                 padding: '24px',
-                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
+                boxShadow: 'var(--card-shadow, 0 4px 20px rgba(0, 0, 0, 0.2))'
               }}
             >
               {/* Group Header */}
@@ -340,7 +344,7 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                 alignItems: 'center',
                 marginBottom: '20px',
                 paddingBottom: '16px',
-                borderBottom: '1px solid #1e293b'
+                borderBottom: '1px solid var(--border-subtle, #1e293b)'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{
@@ -348,8 +352,8 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                     width: '44px',
                     height: '44px',
                     borderRadius: '10px',
-                    backgroundColor: '#0f172a',
-                    border: '1px solid #334155',
+                    backgroundColor: 'var(--bg-subtle, #0f172a)',
+                    border: '1px solid var(--border-color, #334155)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
@@ -358,7 +362,7 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                   </div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <h2 style={{ fontSize: '18px', margin: 0, color: '#f8fafc', fontWeight: 600 }}>
+                      <h2 style={{ fontSize: '18px', margin: 0, color: 'var(--text-main, #f8fafc)', fontWeight: 600 }}>
                         {group.meta.name}
                       </h2>
                       <span style={{
@@ -372,7 +376,7 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                         {group.meta.badge}
                       </span>
                     </div>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-muted, #94a3b8)' }}>
                       {group.meta.description}
                     </p>
                   </div>
@@ -380,9 +384,9 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
 
                 <div style={{
                   fontSize: '12px',
-                  color: '#94a3b8',
-                  backgroundColor: '#0f172a',
-                  border: '1px solid #334155',
+                  color: 'var(--text-muted, #94a3b8)',
+                  backgroundColor: 'var(--bg-subtle, #0f172a)',
+                  border: '1px solid var(--border-color, #334155)',
                   padding: '4px 10px',
                   borderRadius: '6px'
                 }}>
@@ -404,8 +408,8 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
-                      backgroundColor: '#0f172a',
-                      border: b.enabled ? (b.isDefault ? '1px solid #059669' : '1px solid #334155') : '1px solid #7f1d1d',
+                      backgroundColor: 'var(--bg-subtle, #0f172a)',
+                      border: b.enabled ? (b.isDefault ? '1px solid #059669' : '1px solid var(--border-color, #334155)') : '1px solid #dc2626',
                       borderRadius: '10px',
                       padding: '20px',
                       opacity: b.enabled ? 1 : 0.72,
@@ -415,10 +419,10 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                         <div>
-                          <h3 style={{ margin: 0, fontSize: '16px', color: '#f8fafc', fontWeight: 600 }}>
+                          <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--text-main, #f8fafc)', fontWeight: 600 }}>
                             {b.displayName || `${group.meta.name} (${b.version})`}
                           </h3>
-                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                          <div style={{ fontSize: '12px', color: 'var(--text-subtle, #64748b)', marginTop: '2px' }}>
                             标识 ID: <code>{b.id}</code>
                           </div>
                         </div>
@@ -432,16 +436,17 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                         alignItems: 'center',
                         gap: '8px',
                         marginBottom: '12px',
-                        backgroundColor: '#1e293b',
+                        backgroundColor: 'var(--bg-surface, #1e293b)',
+                        border: '1px solid var(--border-subtle, #334155)',
                         padding: '6px 10px',
                         borderRadius: '6px'
                       }}>
-                        <span style={{ fontSize: '12px', color: '#94a3b8' }}>运行版本:</span>
-                        <strong style={{ fontSize: '13px', color: '#38bdf8' }}>v{b.version}</strong>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted, #94a3b8)' }}>运行版本:</span>
+                        <strong style={{ fontSize: '13px', color: 'var(--primary-color, #38bdf8)' }}>v{b.version}</strong>
                         <span style={{
                           fontSize: '11px',
-                          color: '#a5b4fc',
-                          backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                          color: '#6366f1',
+                          backgroundColor: 'rgba(99, 102, 241, 0.12)',
                           padding: '1px 6px',
                           borderRadius: '4px'
                         }}>
@@ -449,23 +454,24 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                         </span>
                       </div>
 
-                      <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ color: '#94a3b8' }}>镜像:</span>
-                        <code style={{ color: '#a7f3d0', fontSize: '11px', wordBreak: 'break-all' }}>{b.image}</code>
+                      <div style={{ fontSize: '12px', color: 'var(--text-subtle, #64748b)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ color: 'var(--text-muted, #94a3b8)' }}>镜像:</span>
+                        <code style={{ color: 'var(--code-text, #a7f3d0)', fontSize: '11px', wordBreak: 'break-all' }}>{b.image}</code>
                       </div>
 
                       {b.gridUrl && (
-                        <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Server size={12} style={{ color: '#38bdf8' }} />
-                          <span style={{ color: '#94a3b8' }}>调度节点:</span>
-                          <code style={{ color: '#38bdf8' }}>{b.gridUrl}</code>
+                        <div style={{ fontSize: '11px', color: 'var(--text-subtle, #64748b)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Server size={12} style={{ color: 'var(--primary-color, #38bdf8)' }} />
+                          <span style={{ color: 'var(--text-muted, #94a3b8)' }}>调度节点:</span>
+                          <code style={{ color: 'var(--primary-color, #38bdf8)' }}>{b.gridUrl}</code>
                         </div>
                       )}
 
                       <div style={{
                         fontSize: '11px',
-                        color: '#94a3b8',
-                        backgroundColor: '#1e293b',
+                        color: 'var(--text-muted, #94a3b8)',
+                        backgroundColor: 'var(--bg-surface, #1e293b)',
+                        border: '1px solid var(--border-subtle, #334155)',
                         padding: '8px 10px',
                         borderRadius: '6px',
                         display: 'flex',
@@ -480,7 +486,7 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                     <div style={{
                       marginTop: '18px',
                       paddingTop: '14px',
-                      borderTop: '1px solid #1e293b',
+                      borderTop: '1px solid var(--border-subtle, #1e293b)',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
@@ -488,11 +494,11 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                       flexWrap: 'wrap'
                     }}>
                       {b.isDefault ? (
-                        <span style={{ fontSize: '12px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '12px', color: '#059669', display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <CheckCircle2 size={14} /> 推荐默认
                         </span>
                       ) : (
-                        <span style={{ fontSize: '12px', color: '#64748b' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--text-subtle, #64748b)' }}>
                           标准独立舱
                         </span>
                       )}
@@ -500,7 +506,10 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         {isAdmin && (
                           <button
-                            onClick={() => handleToggleBrowser(b)}
+                            onClick={() => {
+                              setToggleError('');
+                              setPendingBrowserToggle(b);
+                            }}
                             disabled={updatingBrowserId === b.id}
                             className="btn-secondary"
                             aria-label={`${b.enabled ? '禁用' : '启用'} ${b.displayName}`}
@@ -550,12 +559,36 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
         />
       )}
 
-      {isAdmin && showInstallModal && (
+      {showInstallModal && (
         <BrowserInstallModal
           onClose={() => setShowInstallModal(false)}
           onInstalled={loadBrowsers}
         />
       )}
+
+      <ConfirmDialog
+        open={Boolean(pendingBrowserToggle)}
+        tone={pendingBrowserToggle?.enabled ? 'warning' : 'primary'}
+        eyebrow={pendingBrowserToggle?.enabled ? '舱位下线确认' : '舱位上线确认'}
+        title={pendingBrowserToggle?.enabled ? '禁用这个浏览器舱位？' : '启用这个浏览器舱位？'}
+        description={pendingBrowserToggle?.enabled
+          ? '禁用后该版本将不再接受新的测试舱请求；已经启动的会话不会被强制结束。'
+          : '启用后该版本会重新出现在可用舱位矩阵中，并可以接受新的测试任务。'}
+        subject={pendingBrowserToggle
+          ? `${pendingBrowserToggle.displayName} · ${pendingBrowserToggle.image}`
+          : undefined}
+        confirmLabel={pendingBrowserToggle?.enabled ? '确认禁用' : '确认启用'}
+        loading={Boolean(pendingBrowserToggle && updatingBrowserId === pendingBrowserToggle.id)}
+        error={toggleError}
+        onConfirm={() => {
+          if (pendingBrowserToggle) void handleToggleBrowser(pendingBrowserToggle);
+        }}
+        onCancel={() => {
+          if (updatingBrowserId) return;
+          setPendingBrowserToggle(null);
+          setToggleError('');
+        }}
+      />
     </div>
   );
 };
