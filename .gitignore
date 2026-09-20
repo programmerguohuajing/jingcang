@@ -11,3 +11,4 @@ data/logs/*
 .DS_Store
 coverage/
 backups/
+cookies.txt

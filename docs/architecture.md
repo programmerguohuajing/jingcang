@@ -58,8 +58,8 @@ Control API 校验 Token 与 `sessionId` 后，将浏览器 WebSocket 双向代�
 
 Worker 每 30 秒执行一次维护：
 
-- 回收达到 TTL 的会话；
-- 根据 `JINGCANG_SESSION_IDLE_MINUTES` 回收空闲 READY 会话；
-- 服务启动后恢复并消费 QUEUED 会话；
+- 仅在达到 `expires_at` 时将会话标记为 `EXPIRED`；
+- 根据 `JINGCANG_SESSION_IDLE_MINUTES` 回收空闲 READY 会话，并标记为 `TERMINATED / IDLE_TIMEOUT`；
+- 服务启动时为未到期 READY 会话重置空闲计时基线，再恢复并消费 QUEUED 会话；
 - 根据保留天数清理过期产物；
 - 根据 `JINGCANG_ARTIFACT_MAX_TOTAL_GB` 按创建时间淘汰最旧产物。

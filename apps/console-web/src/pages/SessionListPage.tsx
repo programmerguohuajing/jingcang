@@ -11,7 +11,11 @@ type PendingSessionAction = {
   selectedIds?: string[];
 };
 
-export const getStatusBadge = (status: string) => {
+export const getStatusBadge = (status: string, failureCode?: string | null) => {
+  if (status === 'TERMINATED' && failureCode === 'IDLE_TIMEOUT') {
+    return <span className="badge badge-terminated">空闲回收</span>;
+  }
+
   const map: Record<string, { label: string; className: string }> = {
     READY: { label: '运行中', className: 'badge-ready' },
     STARTING: { label: '启动中', className: 'badge-starting' },
@@ -267,7 +271,7 @@ export const SessionListPage: React.FC = () => {
                       <span style={{ color: 'var(--primary-color, #38bdf8)' }}>{s.browserName} v{s.browserVersion}</span>
                     </td>
                     <td style={{ padding: '14px 16px' }}>
-                      {getStatusBadge(s.status)}
+                      {getStatusBadge(s.status, s.failureCode)}
                     </td>
                     <td style={{ padding: '14px 16px', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <code style={{ color: 'var(--code-text, #a7f3d0)' }}>{s.startUrl}</code>

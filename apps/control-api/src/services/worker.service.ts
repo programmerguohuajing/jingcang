@@ -22,6 +22,9 @@ export class WorkerService {
   public start(): void {
     if (this.timer) return;
 
+    this.repairLegacyPrematureExpiryStatuses();
+    this.resetIdleBaselineAfterRestart();
+
     this.timer = setInterval(() => {
       this.runPeriodicTasks().catch((err) => {
         console.error('[WorkerService] Periodic task error:', err);
@@ -40,20 +43,23 @@ export class WorkerService {
     }
   }
 
-  public async runPeriodicTasks(): Promise<{ expiredCount: number; cleanedArtifacts: number }> {
+  public async runPeriodicTasks(): Promise<{
+    expiredCount: number;
+    idleTerminatedCount: number;
+    cleanedArtifacts: number;
+  }> {
     await this.maintainActiveSessions();
     const expiredCount = await this.sweepExpiredSessions();
+    const idleTerminatedCount = await this.sweepIdleSessions();
     const cleanedArtifacts = this.cleanupArtifacts();
     await this.orchestrator.processQueue();
-    return { expiredCount, cleanedArtifacts };
+    return { expiredCount, idleTerminatedCount, cleanedArtifacts };
   }
 
   private async sweepExpiredSessions(): Promise<number> {
     const db = getDb(this.config);
     const now = new Date();
     const nowIso = now.toISOString();
-    const targets = new Map<string, { id: string; status: string }>();
-
     const expiredRows = db.prepare(`
       SELECT id, status
       FROM sessions
@@ -61,25 +67,8 @@ export class WorkerService {
         AND expires_at <= ?
     `).all(nowIso) as Array<{ id: string; status: string }>;
 
-    for (const row of expiredRows) targets.set(row.id, row);
-
-    if (this.config.sessionIdleMinutes > 0) {
-      const idleCutoff = new Date(
-        now.getTime() - this.config.sessionIdleMinutes * 60 * 1000
-      ).toISOString();
-
-      const idleRows = db.prepare(`
-        SELECT id, status
-        FROM sessions
-        WHERE status = 'READY'
-          AND COALESCE(last_activity_at, started_at, created_at) <= ?
-      `).all(idleCutoff) as Array<{ id: string; status: string }>;
-
-      for (const row of idleRows) targets.set(row.id, row);
-    }
-
     let count = 0;
-    for (const row of targets.values()) {
+    for (const row of expiredRows) {
       try {
         if (row.status === 'QUEUED') {
           const result = db.prepare(`
@@ -99,6 +88,88 @@ export class WorkerService {
     }
 
     return count;
+  }
+
+  private async sweepIdleSessions(): Promise<number> {
+    if (this.config.sessionIdleMinutes <= 0) return 0;
+
+    const db = getDb(this.config);
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const idleCutoff = new Date(
+      now.getTime() - this.config.sessionIdleMinutes * 60 * 1000
+    ).toISOString();
+
+    const idleRows = db.prepare(`
+      SELECT id
+      FROM sessions
+      WHERE status = 'READY'
+        AND expires_at > ?
+        AND COALESCE(last_activity_at, started_at, created_at) <= ?
+    `).all(nowIso, idleCutoff) as Array<{ id: string }>;
+
+    let count = 0;
+    for (const row of idleRows) {
+      try {
+        await this.orchestrator.terminateSession(row.id, 'system', true, 'TERMINATED');
+        db.prepare(`
+          UPDATE sessions
+          SET failure_code = 'IDLE_TIMEOUT',
+              failure_message = ?
+          WHERE id = ? AND status = 'TERMINATED'
+        `).run(
+          `连续 ${this.config.sessionIdleMinutes} 分钟没有 Viewer 活动，测试舱已自动回收`,
+          row.id
+        );
+        count++;
+      } catch (err) {
+        console.error(`[WorkerService] Error reclaiming idle session ${row.id}:`, err);
+      }
+    }
+
+    return count;
+  }
+
+  private repairLegacyPrematureExpiryStatuses(): void {
+    const db = getDb(this.config);
+    const message = this.config.sessionIdleMinutes > 0
+      ? `旧版本将空闲回收误标记为已过期；该会话在实际 expires_at 前已结束`
+      : '旧版本在实际 expires_at 前将会话误标记为已过期';
+
+    const result = db.prepare(`
+      UPDATE sessions
+      SET status = 'TERMINATED',
+          failure_code = 'IDLE_TIMEOUT',
+          failure_message = COALESCE(failure_message, ?)
+      WHERE status = 'EXPIRED'
+        AND ended_at IS NOT NULL
+        AND ended_at < expires_at
+    `).run(message);
+
+    if (result.changes > 0) {
+      console.log(
+        `[WorkerService] Reclassified ${result.changes} prematurely expired legacy session(s)`
+      );
+    }
+  }
+
+  private resetIdleBaselineAfterRestart(): void {
+    if (this.config.sessionIdleMinutes <= 0) return;
+
+    const db = getDb(this.config);
+    const nowIso = new Date().toISOString();
+    const result = db.prepare(`
+      UPDATE sessions
+      SET last_activity_at = ?
+      WHERE status = 'READY'
+        AND expires_at > ?
+    `).run(nowIso, nowIso);
+
+    if (result.changes > 0) {
+      console.log(
+        `[WorkerService] Reset idle baseline for ${result.changes} active session(s) after restart`
+      );
+    }
   }
 
   private resolveArtifactPath(relativePath: string): string | null {

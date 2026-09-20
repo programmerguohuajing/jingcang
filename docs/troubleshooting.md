@@ -48,12 +48,12 @@ Viewer Token 默认只有 120 秒有效期，控制台断线后会重新申请 T
 
 ## 5. 浏览器测试舱被自动关闭
 
-可能由两种策略触发：
+自动关闭有两种不同语义：
 
-- 会话到达 `expires_at`。
-- READY 会话超过 `JINGCANG_SESSION_IDLE_MINUTES` 没有 Viewer 交互。
+- 只有当前时间达到或超过 `expires_at` 时，会话才会进入 `EXPIRED / 已过期`。
+- READY 会话超过 `JINGCANG_SESSION_IDLE_MINUTES` 没有 Viewer 交互时，会被空闲回收并进入 `TERMINATED / 空闲回收`，不会标记为已过期。
 
-设置 `JINGCANG_SESSION_IDLE_MINUTES=0` 可关闭空闲回收，但仍保留最大会话时长限制。
+Control API / 容器重启时，会为仍未到期的 READY 会话重新建立空闲计时基线，避免使用重启前的旧活动时间立即回收。设置 `JINGCANG_SESSION_IDLE_MINUTES=0` 可关闭空闲回收，但仍保留最大会话时长限制。
 
 ## 6. 登录失败或出现 429
 

@@ -15,9 +15,9 @@
 
 Worker 默认每 30 秒运行一次：
 
-- 回收到期会话；
-- 回收超过 `JINGCANG_SESSION_IDLE_MINUTES` 的空闲会话；
-- 服务重启后继续处理排队会话；
+- 仅回收真正达到 `expires_at` 的到期会话，并标记为 `EXPIRED`；
+- 回收超过 `JINGCANG_SESSION_IDLE_MINUTES` 的空闲会话，并标记为 `TERMINATED / IDLE_TIMEOUT`；
+- 服务重启后先重置未到期 READY 会话的空闲计时基线，再继续处理排队会话；
 - 按 `JINGCANG_ARTIFACT_RETENTION_DAYS` 清理旧产物；
 - 当产物总量超过 `JINGCANG_ARTIFACT_MAX_TOTAL_GB` 时，从最旧产物开始清理。
 
