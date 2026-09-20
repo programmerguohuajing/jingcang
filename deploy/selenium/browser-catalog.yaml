@@ -1,0 +1,157 @@
+browsers:
+  - id: chrome-stable
+    name: chrome
+    browserName: chrome
+    displayName: Google Chrome (Latest)
+    version: "latest"
+    channel: stable
+    image: selenium/standalone-chrome:latest
+    platform: linux-amd64
+    enabled: true
+    isDefault: true
+    resourceJson:
+      cpus: 2
+      memory: 3g
+      shmSize: 2g
+
+  - id: chrome-103
+    name: chrome
+    browserName: chrome
+    displayName: Google Chrome v103.0 (Legacy)
+    version: "103.0"
+    channel: stable
+    image: selenium/standalone-chrome:103.0
+    gridUrl: http://host.docker.internal:4447
+    platform: linux-amd64
+    enabled: true
+    isDefault: false
+    resourceJson:
+      cpus: 2
+      memory: 3g
+      shmSize: 2g
+
+  - id: chrome-110
+    name: chrome
+    browserName: chrome
+    displayName: Google Chrome v110.0
+    version: "110.0"
+    channel: stable
+    image: selenium/standalone-chrome:110.0
+    gridUrl: http://host.docker.internal:4448
+    platform: linux-amd64
+    enabled: true
+    isDefault: false
+    resourceJson:
+      cpus: 2
+      memory: 3g
+      shmSize: 2g
+
+  - id: chrome-129
+    name: chrome
+    browserName: chrome
+    displayName: Google Chrome v129.0
+    version: "129.0"
+    channel: stable
+    image: selenium/standalone-chrome:129.0
+    gridUrl: http://host.docker.internal:4449
+    platform: linux-amd64
+    enabled: true
+    isDefault: false
+    resourceJson:
+      cpus: 2
+      memory: 3g
+      shmSize: 2g
+
+  - id: chrome-130
+    name: chrome
+    browserName: chrome
+    displayName: Google Chrome v130.0
+    version: "130.0"
+    channel: stable
+    image: selenium/standalone-chrome:130.0
+    gridUrl: http://host.docker.internal:4450
+    platform: linux-amd64
+    enabled: true
+    isDefault: false
+    resourceJson:
+      cpus: 2
+      memory: 3g
+      shmSize: 2g
+
+  - id: edge-stable
+    name: edge
+    browserName: edge
+    displayName: Microsoft Edge (Latest)
+    version: "latest"
+    channel: stable
+    image: selenium/standalone-edge:latest
+    platform: linux-amd64
+    enabled: true
+    isDefault: false
+    resourceJson:
+      cpus: 2
+      memory: 3g
+      shmSize: 2g
+
+  - id: edge-110
+    name: edge
+    browserName: edge
+    displayName: Microsoft Edge v110.0
+    version: "110.0"
+    channel: stable
+    image: selenium/standalone-edge:110.0
+    gridUrl: http://host.docker.internal:4451
+    platform: linux-amd64
+    enabled: true
+    isDefault: false
+    resourceJson:
+      cpus: 2
+      memory: 3g
+      shmSize: 2g
+
+  - id: edge-129
+    name: edge
+    browserName: edge
+    displayName: Microsoft Edge v129.0
+    version: "129.0"
+    channel: stable
+    image: selenium/standalone-edge:129.0
+    gridUrl: http://host.docker.internal:4452
+    platform: linux-amd64
+    enabled: true
+    isDefault: false
+    resourceJson:
+      cpus: 2
+      memory: 3g
+      shmSize: 2g
+
+  - id: edge-130
+    name: edge
+    browserName: edge
+    displayName: Microsoft Edge v130.0
+    version: "130.0"
+    channel: stable
+    image: selenium/standalone-edge:130.0
+    gridUrl: http://host.docker.internal:4453
+    platform: linux-amd64
+    enabled: true
+    isDefault: false
+    resourceJson:
+      cpus: 2
+      memory: 3g
+      shmSize: 2g
+
+  - id: firefox-stable
+    name: firefox
+    browserName: firefox
+    displayName: Mozilla Firefox (Latest)
+    version: "latest"
+    channel: stable
+    image: selenium/standalone-firefox:latest
+    platform: linux-amd64
+    enabled: true
+    isDefault: false
+    resourceJson:
+      cpus: 2
+      memory: 3g
+      shmSize: 2g

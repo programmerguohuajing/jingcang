@@ -1,0 +1,561 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../api/client';
+import { BrowserItem, CreateSessionRequest } from '@jingcang/contracts';
+import { SessionCreateModal } from './SessionCreateModal';
+import { BrowserInstallModal } from './BrowserInstallModal';
+import { Play, CheckCircle2, RefreshCw, Layers, Server, Plus, Box, Power, PowerOff } from 'lucide-react';
+
+interface BrowserCatalogPageProps {
+  isAdmin: boolean;
+}
+
+interface VendorMeta {
+  key: string;
+  name: string;
+  enName: string;
+  icon: string;
+  badge: string;
+  badgeBg: string;
+  badgeColor: string;
+  description: string;
+}
+
+const VENDOR_CONFIGS: Record<string, VendorMeta> = {
+  chrome: {
+    key: 'chrome',
+    name: 'Google Chrome',
+    enName: 'Blink · V8 Engine',
+    icon: '🌐',
+    badge: 'Google',
+    badgeBg: 'rgba(59, 130, 246, 0.15)',
+    badgeColor: '#60a5fa',
+    description: '全球使用率最高的现代化浏览器，Blink 排版内核与 V8 高性能引擎'
+  },
+  edge: {
+    key: 'edge',
+    name: 'Microsoft Edge',
+    enName: 'Chromium · Edge Core',
+    icon: '🌊',
+    badge: 'Microsoft',
+    badgeBg: 'rgba(14, 165, 233, 0.15)',
+    badgeColor: '#38bdf8',
+    description: '微软基于 Chromium 内核深度定制的现代化桌面浏览器，深度集成 Windows 办公生态'
+  },
+  firefox: {
+    key: 'firefox',
+    name: 'Mozilla Firefox',
+    enName: 'Gecko · Quantum Engine',
+    icon: '🦊',
+    badge: 'Mozilla',
+    badgeBg: 'rgba(249, 115, 22, 0.15)',
+    badgeColor: '#fb923c',
+    description: '自主研发的独立 Gecko / Quantum 排版引擎，支持全方位跨内核兼容性复查与隐私标准'
+  },
+  chromium: {
+    key: 'chromium',
+    name: 'Chromium',
+    enName: 'Open Source Baseline',
+    icon: '⚛️',
+    badge: '开源社区',
+    badgeBg: 'rgba(168, 85, 247, 0.15)',
+    badgeColor: '#c084fc',
+    description: '标准 Web 规范开源基准实现，无商业插件干扰的纯粹渲染环境'
+  }
+};
+
+const VENDOR_ORDER = ['chrome', 'edge', 'firefox', 'chromium'];
+
+export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin }) => {
+  const [browsers, setBrowsers] = useState<BrowserItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [updatingBrowserId, setUpdatingBrowserId] = useState<string | null>(null);
+  const [selectedBrowser, setSelectedBrowser] = useState<BrowserItem | null>(null);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [activeVendorTab, setActiveVendorTab] = useState<string>('all');
+  const navigate = useNavigate();
+
+  const loadBrowsers = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await api.getBrowsers(isAdmin);
+      setBrowsers(data);
+    } catch (err: any) {
+      setError(err.message || '加载浏览器舱位失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBrowsers();
+  }, [isAdmin]);
+
+  const handleToggleBrowser = async (browser: BrowserItem) => {
+    const nextEnabled = !browser.enabled;
+    setUpdatingBrowserId(browser.id);
+    setError('');
+    setNotice('');
+
+    try {
+      const updated = await api.updateBrowserCatalog(browser.id, { enabled: nextEnabled });
+      setBrowsers((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setNotice(`${updated.displayName} 已${updated.enabled ? '启用' : '禁用'}`);
+      if (!updated.enabled && selectedBrowser?.id === updated.id) {
+        setSelectedBrowser(null);
+      }
+    } catch (err: any) {
+      setError(err.message || `${nextEnabled ? '启用' : '禁用'}浏览器舱位失败`);
+    } finally {
+      setUpdatingBrowserId(null);
+    }
+  };
+
+  const handleStartSession = async (request: CreateSessionRequest) => {
+    const session = await api.createSession(request);
+    setSelectedBrowser(null);
+    if (session.status === 'READY' || session.status === 'STARTING') {
+      navigate(`/viewer/${session.id}`);
+    } else {
+      navigate('/sessions');
+    }
+  };
+
+  // Group browsers by vendor
+  const groupedVendors = useMemo(() => {
+    const groups = new Map<string, { meta: VendorMeta; items: BrowserItem[] }>();
+
+    // Initialize ordered vendors
+    for (const vKey of VENDOR_ORDER) {
+      groups.set(vKey, { meta: VENDOR_CONFIGS[vKey], items: [] });
+    }
+
+    // Populate browsers
+    for (const b of browsers) {
+      const vKey = (b.browserName || '').toLowerCase();
+      if (!groups.has(vKey)) {
+        groups.set(vKey, {
+          meta: {
+            key: vKey,
+            name: b.browserName.toUpperCase(),
+            enName: 'Custom Engine',
+            icon: '💻',
+            badge: '定制',
+            badgeBg: 'rgba(148, 163, 184, 0.15)',
+            badgeColor: '#94a3b8',
+            description: '其他厂商或独立定制的浏览器测试环境'
+          },
+          items: []
+        });
+      }
+      groups.get(vKey)!.items.push(b);
+    }
+
+    // Filter out vendors with 0 browsers unless expected
+    return Array.from(groups.values()).filter((g) => g.items.length > 0);
+  }, [browsers]);
+
+  const visibleVendors = useMemo(() => {
+    if (activeVendorTab === 'all') return groupedVendors;
+    return groupedVendors.filter((g) => g.meta.key === activeVendorTab);
+  }, [groupedVendors, activeVendorTab]);
+
+  return (
+    <div style={{ padding: '32px 24px', maxWidth: '1240px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1 style={{ fontSize: '24px', margin: 0, color: '#f8fafc' }}>浏览器舱位矩阵</h1>
+            <span style={{
+              fontSize: '12px',
+              backgroundColor: '#1e293b',
+              color: '#38bdf8',
+              padding: '2px 8px',
+              borderRadius: '999px',
+              fontWeight: 500
+            }}>
+              {groupedVendors.length} 个内核厂商 · {browsers.length} 个版本规格
+            </span>
+          </div>
+          <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '6px' }}>
+            已按浏览器厂商与内核引擎独立分组。选择目标版本可一键启动完全隔离的沙盒测试舱。
+          </p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button onClick={loadBrowsers} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <RefreshCw size={16} /> 刷新舱位
+          </button>
+          {isAdmin && (
+            <button
+              onClick={() => setShowInstallModal(true)}
+              className="btn-primary add-browser-version-button"
+            >
+              <Plus size={16} /> 增加浏览器版本
+            </button>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div style={{
+          backgroundColor: 'rgba(220, 38, 38, 0.2)',
+          border: '1px solid #dc2626',
+          color: '#f87171',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          marginBottom: '20px'
+        }}>
+          {error}
+        </div>
+      )}
+
+      {notice && (
+        <div style={{
+          backgroundColor: 'rgba(5, 150, 105, 0.16)',
+          border: '1px solid #059669',
+          color: '#6ee7b7',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          marginBottom: '20px'
+        }}>
+          {notice}
+        </div>
+      )}
+
+      {/* Vendor Filter Tabs */}
+      {!loading && groupedVendors.length > 0 && (
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          alignItems: 'center',
+          overflowX: 'auto',
+          paddingBottom: '8px',
+          marginBottom: '28px',
+          borderBottom: '1px solid #1e293b'
+        }}>
+          <button
+            onClick={() => setActiveVendorTab('all')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              border: activeVendorTab === 'all' ? '1px solid #3b82f6' : '1px solid transparent',
+              backgroundColor: activeVendorTab === 'all' ? '#1e293b' : 'transparent',
+              color: activeVendorTab === 'all' ? '#38bdf8' : '#94a3b8',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Layers size={15} />
+            <span>全部厂商</span>
+            <span style={{
+              fontSize: '11px',
+              padding: '1px 6px',
+              borderRadius: '999px',
+              backgroundColor: activeVendorTab === 'all' ? 'rgba(56, 189, 248, 0.2)' : '#1e293b',
+              color: activeVendorTab === 'all' ? '#38bdf8' : '#64748b'
+            }}>
+              {browsers.length}
+            </span>
+          </button>
+
+          {groupedVendors.map((group) => {
+            const isActive = activeVendorTab === group.meta.key;
+            return (
+              <button
+                key={group.meta.key}
+                onClick={() => setActiveVendorTab(group.meta.key)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  border: isActive ? `1px solid ${group.meta.badgeColor}` : '1px solid transparent',
+                  backgroundColor: isActive ? '#1e293b' : 'transparent',
+                  color: isActive ? '#f8fafc' : '#94a3b8',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>{group.meta.icon}</span>
+                <span>{group.meta.name}</span>
+                <span style={{
+                  fontSize: '11px',
+                  padding: '1px 6px',
+                  borderRadius: '999px',
+                  backgroundColor: isActive ? group.meta.badgeBg : '#1e293b',
+                  color: isActive ? group.meta.badgeColor : '#64748b'
+                }}>
+                  {group.items.length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '80px 0', color: '#94a3b8' }}>
+          正在加载多厂商浏览器舱位列表...
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
+          {visibleVendors.length === 0 && (
+            <div className="browser-catalog-empty">
+              <Box size={28} />
+              <strong>当前筛选下暂无浏览器舱位</strong>
+              <span>可以增加一个官方 Selenium 浏览器版本并自动接入。</span>
+              {isAdmin && (
+                <button className="btn-primary add-browser-version-button" onClick={() => setShowInstallModal(true)}>
+                  <Plus size={16} /> 增加浏览器版本
+                </button>
+              )}
+            </div>
+          )}
+          {visibleVendors.map((group) => (
+            <section
+              key={group.meta.key}
+              style={{
+                backgroundColor: 'rgba(15, 23, 42, 0.4)',
+                border: '1px solid #1e293b',
+                borderRadius: '12px',
+                padding: '24px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
+              }}
+            >
+              {/* Group Header */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '20px',
+                paddingBottom: '16px',
+                borderBottom: '1px solid #1e293b'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    fontSize: '24px',
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '10px',
+                    backgroundColor: '#0f172a',
+                    border: '1px solid #334155',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {group.meta.icon}
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <h2 style={{ fontSize: '18px', margin: 0, color: '#f8fafc', fontWeight: 600 }}>
+                        {group.meta.name}
+                      </h2>
+                      <span style={{
+                        fontSize: '11px',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: group.meta.badgeBg,
+                        color: group.meta.badgeColor,
+                        fontWeight: 500
+                      }}>
+                        {group.meta.badge}
+                      </span>
+                    </div>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                      {group.meta.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{
+                  fontSize: '12px',
+                  color: '#94a3b8',
+                  backgroundColor: '#0f172a',
+                  border: '1px solid #334155',
+                  padding: '4px 10px',
+                  borderRadius: '6px'
+                }}>
+                  收录 <strong>{group.items.length}</strong> 个版本舱位
+                </div>
+              </div>
+
+              {/* Cards Grid */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                gap: '18px'
+              }}>
+                {group.items.map((b) => (
+                  <div
+                    key={b.id}
+                    className="card"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      backgroundColor: '#0f172a',
+                      border: b.enabled ? (b.isDefault ? '1px solid #059669' : '1px solid #334155') : '1px solid #7f1d1d',
+                      borderRadius: '10px',
+                      padding: '20px',
+                      opacity: b.enabled ? 1 : 0.72,
+                      transition: 'transform 0.15s ease, border-color 0.15s ease, opacity 0.15s ease'
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: '16px', color: '#f8fafc', fontWeight: 600 }}>
+                            {b.displayName || `${group.meta.name} (${b.version})`}
+                          </h3>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                            标识 ID: <code>{b.id}</code>
+                          </div>
+                        </div>
+                        <span className={`badge ${b.enabled ? 'badge-ready' : 'badge-failed'}`}>
+                          {b.enabled ? '可用' : '未启用'}
+                        </span>
+                      </div>
+
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '12px',
+                        backgroundColor: '#1e293b',
+                        padding: '6px 10px',
+                        borderRadius: '6px'
+                      }}>
+                        <span style={{ fontSize: '12px', color: '#94a3b8' }}>运行版本:</span>
+                        <strong style={{ fontSize: '13px', color: '#38bdf8' }}>v{b.version}</strong>
+                        <span style={{
+                          fontSize: '11px',
+                          color: '#a5b4fc',
+                          backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                          padding: '1px 6px',
+                          borderRadius: '4px'
+                        }}>
+                          {b.channel || 'stable'}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ color: '#94a3b8' }}>镜像:</span>
+                        <code style={{ color: '#a7f3d0', fontSize: '11px', wordBreak: 'break-all' }}>{b.image}</code>
+                      </div>
+
+                      {b.gridUrl && (
+                        <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Server size={12} style={{ color: '#38bdf8' }} />
+                          <span style={{ color: '#94a3b8' }}>调度节点:</span>
+                          <code style={{ color: '#38bdf8' }}>{b.gridUrl}</code>
+                        </div>
+                      )}
+
+                      <div style={{
+                        fontSize: '11px',
+                        color: '#94a3b8',
+                        backgroundColor: '#1e293b',
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <span>⚡</span>
+                        <span>资源配置: 2 CPU · 3GB 内存 · 2GB 共享显存 (SHM)</span>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      marginTop: '18px',
+                      paddingTop: '14px',
+                      borderTop: '1px solid #1e293b',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '10px',
+                      flexWrap: 'wrap'
+                    }}>
+                      {b.isDefault ? (
+                        <span style={{ fontSize: '12px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <CheckCircle2 size={14} /> 推荐默认
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '12px', color: '#64748b' }}>
+                          标准独立舱
+                        </span>
+                      )}
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleToggleBrowser(b)}
+                            disabled={updatingBrowserId === b.id}
+                            className="btn-secondary"
+                            aria-label={`${b.enabled ? '禁用' : '启用'} ${b.displayName}`}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              padding: '6px 10px',
+                              fontSize: '12px',
+                              color: b.enabled ? '#fca5a5' : '#6ee7b7',
+                              borderColor: b.enabled ? '#7f1d1d' : '#065f46'
+                            }}
+                          >
+                            {b.enabled ? <PowerOff size={14} /> : <Power size={14} />}
+                            {updatingBrowserId === b.id ? '处理中...' : (b.enabled ? '禁用' : '启用')}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setSelectedBrowser(b)}
+                          disabled={!b.enabled || updatingBrowserId === b.id}
+                          className="btn-primary"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '6px 14px',
+                            fontSize: '13px'
+                          }}
+                        >
+                          <Play size={14} /> {b.enabled ? '启动测试舱' : '舱位已禁用'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+
+      {selectedBrowser && (
+        <SessionCreateModal
+          browser={selectedBrowser}
+          onClose={() => setSelectedBrowser(null)}
+          onSubmit={handleStartSession}
+        />
+      )}
+
+      {isAdmin && showInstallModal && (
+        <BrowserInstallModal
+          onClose={() => setShowInstallModal(false)}
+          onInstalled={loadBrowsers}
+        />
+      )}
+    </div>
+  );
+};

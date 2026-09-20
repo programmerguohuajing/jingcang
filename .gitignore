@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+.env
+data/db/*.sqlite*
+data/artifacts/*
+!data/artifacts/.gitkeep
+data/logs/*
+!data/logs/.gitkeep
+*.log
+.DS_Store
+coverage/
+backups/

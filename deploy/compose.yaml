@@ -1,0 +1,78 @@
+name: jingcang
+
+services:
+  gateway:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "${JINGCANG_BIND_HOST:-127.0.0.1}:${JINGCANG_PORT:-8088}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - control-api
+    networks:
+      - jingcang_frontend
+
+  control-api:
+    build:
+      context: ..
+      dockerfile: apps/control-api/Dockerfile
+    restart: always
+    env_file:
+      - ../.env
+    environment:
+      - JINGCANG_ROOT=/app
+      - JINGCANG_CONTAINERIZED=true
+      - JINGCANG_PORT=8088
+      - JINGCANG_BIND_HOST=0.0.0.0
+      - JINGCANG_GRID_URL=http://selenium-docker:4444
+      - JINGCANG_SQLITE_JOURNAL_MODE=WAL
+      - JINGCANG_TRUST_PROXY=true
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        if [ ! -f /app/data/db/jingcang.sqlite ] && [ -f /app/data/db-host/jingcang.sqlite ]; then
+          echo "[JingCang] Migrating existing host SQLite data into Docker volume..."
+          cp -a /app/data/db-host/. /app/data/db/
+        fi
+        exec node apps/control-api/dist/server.js
+    volumes:
+      - jingcang_db:/app/data/db
+      - ../data/db:/app/data/db-host:ro
+      - ../data/artifacts:/app/data/artifacts
+      - ../data/logs:/app/data/logs
+      - ./selenium/browser-catalog.yaml:/app/deploy/selenium/browser-catalog.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - selenium-docker
+    networks:
+      - jingcang_frontend
+      - jingcang_backend
+
+  selenium-docker:
+    image: selenium/standalone-docker:4.48.0-20260905
+    restart: always
+    environment:
+      - SE_NODE_DOCKER_CONFIG_FILENAME=docker.toml
+      - SE_NODE_MAX_SESSIONS=${JINGCANG_SESSION_MAX_CONCURRENCY:-4}
+      - SE_NODE_SESSION_TIMEOUT=${JINGCANG_SELENIUM_SESSION_TIMEOUT:-7200}
+      - SE_NODE_GRID_URL=http://selenium-docker:4444
+      - SE_VNC_NO_PASSWORD=true
+      - SE_START_VNC=true
+    volumes:
+      - ./selenium/docker.toml:/opt/selenium/docker.toml:ro
+      - ../data/artifacts:/opt/selenium/assets
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - jingcang_backend
+
+networks:
+  jingcang_frontend:
+    driver: bridge
+  jingcang_backend:
+    driver: bridge
+
+volumes:
+  jingcang_db:
+    name: jingcang_db

@@ -1,0 +1,156 @@
+name: jingcang-poc
+
+services:
+  chrome-node:
+    image: selenium/standalone-chrome:latest
+    ports:
+      - "127.0.0.1:4444:4444"
+      - "127.0.0.1:7900:7900"
+    shm_size: 2g
+    environment:
+      - SE_NODE_MAX_SESSIONS=8
+      - SE_SCREEN_WIDTH=2560
+      - SE_SCREEN_HEIGHT=1440
+      - SE_VNC_NO_PASSWORD=true
+      - SE_NODE_SESSION_TIMEOUT=3600
+    networks:
+      - jingcang_poc
+
+  chrome-103-node:
+    image: selenium/standalone-chrome:103.0
+    ports:
+      - "127.0.0.1:4447:4444"
+      - "127.0.0.1:7903:7900"
+    shm_size: 2g
+    environment:
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_SCREEN_WIDTH=2560
+      - SE_SCREEN_HEIGHT=1440
+      - SE_VNC_NO_PASSWORD=true
+      - SE_NODE_SESSION_TIMEOUT=3600
+    networks:
+      - jingcang_poc
+
+  edge-node:
+    image: selenium/standalone-edge:latest
+    ports:
+      - "127.0.0.1:4445:4444"
+      - "127.0.0.1:7901:7900"
+    shm_size: 2g
+    environment:
+      - SE_NODE_MAX_SESSIONS=2
+      - SE_SCREEN_WIDTH=2560
+      - SE_SCREEN_HEIGHT=1440
+      - SE_VNC_NO_PASSWORD=true
+      - SE_NODE_SESSION_TIMEOUT=3600
+    networks:
+      - jingcang_poc
+
+  firefox-node:
+    image: selenium/standalone-firefox:latest
+    ports:
+      - "127.0.0.1:4446:4444"
+      - "127.0.0.1:7902:7900"
+    shm_size: 2g
+    environment:
+      - SE_NODE_MAX_SESSIONS=2
+      - SE_SCREEN_WIDTH=2560
+      - SE_SCREEN_HEIGHT=1440
+      - SE_VNC_NO_PASSWORD=true
+      - SE_NODE_SESSION_TIMEOUT=3600
+    networks:
+      - jingcang_poc
+
+  chrome-110-node:
+    image: selenium/standalone-chrome:110.0
+    ports:
+      - "127.0.0.1:4448:4444"
+      - "127.0.0.1:7904:7900"
+    shm_size: 2g
+    environment:
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_SCREEN_WIDTH=2560
+      - SE_SCREEN_HEIGHT=1440
+      - SE_VNC_NO_PASSWORD=true
+      - SE_NODE_SESSION_TIMEOUT=3600
+    networks:
+      - jingcang_poc
+
+  chrome-129-node:
+    image: selenium/standalone-chrome:129.0
+    ports:
+      - "127.0.0.1:4449:4444"
+      - "127.0.0.1:7905:7900"
+    shm_size: 2g
+    environment:
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_SCREEN_WIDTH=2560
+      - SE_SCREEN_HEIGHT=1440
+      - SE_VNC_NO_PASSWORD=true
+      - SE_NODE_SESSION_TIMEOUT=3600
+    networks:
+      - jingcang_poc
+
+  chrome-130-node:
+    image: selenium/standalone-chrome:130.0
+    ports:
+      - "127.0.0.1:4450:4444"
+      - "127.0.0.1:7906:7900"
+    shm_size: 2g
+    environment:
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_SCREEN_WIDTH=2560
+      - SE_SCREEN_HEIGHT=1440
+      - SE_VNC_NO_PASSWORD=true
+      - SE_NODE_SESSION_TIMEOUT=3600
+    networks:
+      - jingcang_poc
+
+  edge-110-node:
+    image: selenium/standalone-edge:110.0
+    ports:
+      - "127.0.0.1:4451:4444"
+      - "127.0.0.1:7907:7900"
+    shm_size: 2g
+    environment:
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_SCREEN_WIDTH=2560
+      - SE_SCREEN_HEIGHT=1440
+      - SE_VNC_NO_PASSWORD=true
+      - SE_NODE_SESSION_TIMEOUT=3600
+    networks:
+      - jingcang_poc
+
+  edge-129-node:
+    image: selenium/standalone-edge:129.0
+    ports:
+      - "127.0.0.1:4452:4444"
+      - "127.0.0.1:7908:7900"
+    shm_size: 2g
+    environment:
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_SCREEN_WIDTH=2560
+      - SE_SCREEN_HEIGHT=1440
+      - SE_VNC_NO_PASSWORD=true
+      - SE_NODE_SESSION_TIMEOUT=3600
+    networks:
+      - jingcang_poc
+
+  edge-130-node:
+    image: selenium/standalone-edge:130.0
+    ports:
+      - "127.0.0.1:4453:4444"
+      - "127.0.0.1:7909:7900"
+    shm_size: 2g
+    environment:
+      - SE_NODE_MAX_SESSIONS=4
+      - SE_SCREEN_WIDTH=2560
+      - SE_SCREEN_HEIGHT=1440
+      - SE_VNC_NO_PASSWORD=true
+      - SE_NODE_SESSION_TIMEOUT=3600
+    networks:
+      - jingcang_poc
+
+networks:
+  jingcang_poc:
+    driver: bridge

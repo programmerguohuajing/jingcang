@@ -1,0 +1,711 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #0f172a;
+  color: #e2e8f0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+a {
+  color: #38bdf8;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.btn-primary {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+.btn-primary:hover {
+  background-color: #1d4ed8;
+}
+
+.btn-secondary {
+  background-color: #334155;
+  color: #f1f5f9;
+}
+.btn-secondary:hover {
+  background-color: #475569;
+}
+
+.btn-danger {
+  background-color: #dc2626;
+  color: #ffffff;
+}
+.btn-danger:hover {
+  background-color: #b91c1c;
+}
+
+.card {
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.badge-ready { background-color: #059669; color: #ffffff; }
+.badge-starting { background-color: #d97706; color: #ffffff; }
+.badge-provisioning { background-color: #0284c7; color: #ffffff; }
+.badge-queued { background-color: #6366f1; color: #ffffff; }
+.badge-terminating { background-color: #ea580c; color: #ffffff; }
+.badge-terminated { background-color: #64748b; color: #ffffff; }
+.badge-expired { background-color: #475569; color: #ffffff; }
+.badge-failed { background-color: #dc2626; color: #ffffff; }
+
+input, select {
+  background-color: #0f172a;
+  border: 1px solid #334155;
+  color: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 100%;
+}
+input:focus, select:focus {
+  outline: none;
+  border-color: #38bdf8;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 560px;
+  padding: 24px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin-icon {
+  animation: spin 1.2s linear infinite;
+}
+
+.add-browser-version-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.22);
+}
+
+.browser-catalog-empty {
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px dashed #334155;
+  border-radius: 12px;
+  color: #64748b;
+  background: rgba(15, 23, 42, 0.38);
+}
+
+.browser-catalog-empty strong {
+  color: #e2e8f0;
+  font-size: 16px;
+}
+
+.browser-catalog-empty span {
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.browser-install-overlay {
+  padding: 24px;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 50% 15%, rgba(37, 99, 235, 0.14), transparent 34%),
+    rgba(2, 6, 23, 0.88);
+  backdrop-filter: blur(10px);
+}
+
+.browser-install-modal {
+  position: relative;
+  width: min(760px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  margin: auto;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  background: #0b1220;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.58), 0 0 0 1px rgba(56, 189, 248, 0.03) inset;
+}
+
+.browser-install-topline {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #2563eb 0%, #38bdf8 48%, #22c55e 100%);
+}
+
+.browser-install-header {
+  padding: 26px 30px 22px;
+  border-bottom: 1px solid #1e293b;
+  background:
+    linear-gradient(rgba(30, 41, 59, 0.23) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 41, 59, 0.23) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.browser-install-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.browser-install-kicker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #64748b;
+  font: 600 10px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0.14em;
+}
+
+.browser-install-kicker-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+}
+
+.browser-install-close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #111827;
+  color: #94a3b8;
+}
+
+.browser-install-close:hover:not(:disabled) {
+  border-color: #475569;
+  color: #f8fafc;
+}
+
+.browser-install-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.browser-install-header h2 {
+  margin: 12px 0 7px;
+  color: #f8fafc;
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+.browser-install-header p {
+  max-width: 610px;
+  margin: 0;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.browser-install-form,
+.browser-install-progress {
+  padding: 26px 30px 30px;
+}
+
+.browser-install-form fieldset {
+  min-width: 0;
+  margin: 0 0 24px;
+  padding: 0;
+  border: 0;
+}
+
+.browser-install-form legend {
+  width: 100%;
+  margin-bottom: 12px;
+  color: #64748b;
+  font: 600 10px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0.12em;
+}
+
+.browser-vendor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.browser-vendor-option {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #273449;
+  border-radius: 9px;
+  background: #0f172a;
+  color: #cbd5e1;
+  text-align: left;
+}
+
+.browser-vendor-option:hover {
+  border-color: #475569;
+  background: #111c30;
+}
+
+.browser-vendor-option.is-selected {
+  border-color: var(--vendor-color);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--vendor-color) 20%, transparent) inset;
+}
+
+.browser-vendor-mark {
+  display: grid;
+  flex: 0 0 auto;
+  width: 31px;
+  height: 31px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--vendor-color) 55%, #334155);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--vendor-color) 8%, #0f172a);
+  color: var(--vendor-color);
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0.06em;
+}
+
+.browser-vendor-option strong,
+.browser-vendor-option small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-vendor-option strong {
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.browser-vendor-option small {
+  max-width: 88px;
+  margin-top: 3px;
+  color: #64748b;
+  font: 9px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.browser-vendor-check {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: grid;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--vendor-color);
+  color: #06101f;
+}
+
+.browser-version-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.browser-version-input-wrap {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #334155;
+  border-radius: 9px;
+  background: #080e1a;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.browser-version-input-wrap:focus-within {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.09);
+}
+
+.browser-version-input-wrap > span {
+  align-self: stretch;
+  display: grid;
+  width: 42px;
+  place-items: center;
+  border-right: 1px solid #273449;
+  color: #38bdf8;
+  font: 600 13px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.browser-version-input-wrap input {
+  height: 44px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.browser-version-input-wrap input:focus {
+  border: 0;
+}
+
+.browser-version-hint {
+  margin: 7px 0 0;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.browser-image-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: -4px;
+  padding: 13px 15px;
+  border: 1px solid #233047;
+  border-radius: 8px;
+  background: #080e1a;
+}
+
+.browser-image-preview > div {
+  min-width: 0;
+}
+
+.browser-image-preview span,
+.browser-image-preview code {
+  display: block;
+}
+
+.browser-image-preview > div > span {
+  margin-bottom: 5px;
+  color: #64748b;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.browser-image-preview code {
+  overflow: hidden;
+  color: #a7f3d0;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-image-platform {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  color: #94a3b8;
+  font: 600 9px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0.07em;
+}
+
+.browser-install-note {
+  margin-top: 16px;
+  padding-left: 12px;
+  border-left: 2px solid #d97706;
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.browser-install-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 7px;
+  background: rgba(127, 29, 29, 0.16);
+  color: #fca5a5;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.browser-install-error svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.browser-install-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #1e293b;
+}
+
+.browser-install-actions button {
+  min-width: 104px;
+}
+
+.browser-install-submit {
+  display: inline-flex;
+  min-width: 170px !important;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.browser-install-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.browser-install-target {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid #273449;
+  border-radius: 9px;
+  background: #0f172a;
+}
+
+.browser-install-target-mark {
+  display: grid;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid;
+  border-radius: 8px;
+  font: 700 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.browser-install-target > div:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+
+.browser-install-target span,
+.browser-install-target code {
+  display: block;
+}
+
+.browser-install-target > div > span {
+  color: #e2e8f0;
+  font: 600 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: 0.04em;
+}
+
+.browser-install-target code {
+  overflow: hidden;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.browser-install-state {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.14);
+  color: #60a5fa;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.browser-install-state.state-ready {
+  background: rgba(5, 150, 105, 0.16);
+  color: #34d399;
+}
+
+.browser-install-state.state-failed {
+  background: rgba(220, 38, 38, 0.16);
+  color: #f87171;
+}
+
+.browser-install-stepper {
+  display: flex;
+  align-items: flex-start;
+  margin: 28px 4px 26px;
+}
+
+.browser-install-step {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  color: #475569;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.browser-install-step-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid #334155;
+  border-radius: 50%;
+  background: #0f172a;
+}
+
+.browser-install-step.is-current {
+  color: #7dd3fc;
+}
+
+.browser-install-step.is-current .browser-install-step-icon {
+  border-color: #38bdf8;
+  background: rgba(14, 165, 233, 0.12);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.12);
+}
+
+.browser-install-step.is-complete {
+  color: #34d399;
+}
+
+.browser-install-step.is-complete .browser-install-step-icon {
+  border-color: #059669;
+  background: rgba(5, 150, 105, 0.13);
+}
+
+.browser-install-step.is-failed {
+  color: #f87171;
+}
+
+.browser-install-step.is-failed .browser-install-step-icon {
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.13);
+}
+
+.browser-install-step-line {
+  flex: 1 1 40px;
+  height: 1px;
+  margin: 15px 8px 0;
+  background: #273449;
+}
+
+.browser-install-step-line.is-complete {
+  background: #059669;
+}
+
+.browser-install-status-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 78px;
+  padding: 16px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 9px;
+  background: rgba(14, 165, 233, 0.07);
+  color: #38bdf8;
+}
+
+.browser-install-status-panel.is-ready {
+  border-color: rgba(52, 211, 153, 0.3);
+  background: rgba(5, 150, 105, 0.08);
+  color: #34d399;
+}
+
+.browser-install-status-panel.is-failed {
+  border-color: rgba(248, 113, 113, 0.3);
+  background: rgba(127, 29, 29, 0.12);
+  color: #f87171;
+}
+
+.browser-install-status-panel svg {
+  flex: 0 0 auto;
+}
+
+.browser-install-status-panel strong,
+.browser-install-status-panel span {
+  display: block;
+}
+
+.browser-install-status-panel strong {
+  color: #e2e8f0;
+  font-size: 13px;
+}
+
+.browser-install-status-panel span {
+  margin-top: 5px;
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+@media (max-width: 720px) {
+  .browser-install-overlay {
+    padding: 12px;
+  }
+
+  .browser-install-modal {
+    max-height: calc(100vh - 24px);
+  }
+
+  .browser-install-header,
+  .browser-install-form,
+  .browser-install-progress {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .browser-vendor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .browser-install-step span:last-child {
+    display: none;
+  }
+
+  .browser-install-step-line {
+    margin-left: 5px;
+    margin-right: 5px;
+  }
+}

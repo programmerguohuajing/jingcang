@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <linearGradient id="jc-icon-border" x1="16" y1="12" x2="104" y2="108" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#38bdf8" />
+      <stop offset="50%" stopColor="#818cf8" />
+      <stop offset="100%" stopColor="#6366f1" />
+    </linearGradient>
+
+    <linearGradient id="jc-icon-bg" x1="20" y1="20" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#1e293b" />
+      <stop offset="100%" stopColor="#0b1329" />
+    </linearGradient>
+
+    <linearGradient id="jc-icon-cyan" x1="24" y1="36" x2="60" y2="92" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#38bdf8" stop-opacity="0.95" />
+      <stop offset="40%" stopColor="#0ea5e9" stop-opacity="0.85" />
+      <stop offset="100%" stopColor="#0284c7" stop-opacity="0.7" />
+    </linearGradient>
+
+    <linearGradient id="jc-icon-indigo" x1="96" y1="36" x2="60" y2="92" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#a855f7" stop-opacity="0.95" />
+      <stop offset="50%" stopColor="#6366f1" stop-opacity="0.85" />
+      <stop offset="100%" stopColor="#4338ca" stop-opacity="0.7" />
+    </linearGradient>
+
+    <linearGradient id="jc-icon-top" x1="36" y1="24" x2="84" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#f0fdf4" stop-opacity="0.5" />
+      <stop offset="50%" stopColor="#38bdf8" stop-opacity="0.8" />
+      <stop offset="100%" stopColor="#818cf8" stop-opacity="0.5" />
+    </linearGradient>
+
+    <linearGradient id="jc-icon-lens" x1="50" y1="44" x2="70" y2="68" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#ffffff" />
+      <stop offset="50%" stopColor="#7dd3fc" />
+      <stop offset="100%" stopColor="#38bdf8" />
+    </linearGradient>
+
+    <filter id="jc-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Outer Chamber Capsule -->
+  <path
+    d="M60 14
+       C63.5 14 66.8 15.8 68.6 18.8
+       L101.4 72.8
+       C103.2 75.8 103.2 79.5 101.4 82.5
+       L84.2 110.8
+       C82.4 113.8 79.1 115.6 75.6 115.6
+       H44.4
+       C40.9 115.6 37.6 113.8 35.8 110.8
+       L18.6 82.5
+       C16.8 79.5 16.8 75.8 18.6 72.8
+       L51.4 18.8
+       C53.2 15.8 56.5 14 60 14 Z"
+    fill="url(#jc-icon-bg)"
+    stroke="url(#jc-icon-border)"
+    stroke-width="3.5"
+    stroke-linejoin="round"
+  />
+
+  <!-- Chamber Internal Grid Lines -->
+  <path
+    d="M60 16 L60 56 M18.6 77.6 L54 62 M101.4 77.6 L66 62"
+    stroke="#334155"
+    stroke-width="1.5"
+    stroke-dasharray="2 3"
+    stroke-opacity="0.7"
+  />
+
+  <!-- Mirror Facet 1: Left Wing / Cyan Refraction -->
+  <path
+    d="M60 32
+       L32 74
+       C31 75.5 32 77.5 34 78
+       L52 82
+       C54 82.5 56 81.5 57 79.5
+       L68 54
+       L60 32 Z"
+    fill="url(#jc-icon-cyan)"
+  />
+
+  <!-- Mirror Facet 2: Right Wing / Indigo Refraction -->
+  <path
+    d="M60 32
+       L88 74
+       C89 75.5 88 77.5 86 78
+       L68 82
+       C66 82.5 64 81.5 63 79.5
+       L52 54
+       L60 32 Z"
+    fill="url(#jc-icon-indigo)"
+  />
+
+  <!-- Mirror Facet 3: Top Glass Viewport -->
+  <path
+    d="M60 22
+       L78 50
+       L60 62
+       L42 50
+       Z"
+    fill="url(#jc-icon-top)"
+  />
+
+  <!-- Center Focal Core Lens -->
+  <polygon
+    points="60,42 72,56 60,70 48,56"
+    fill="url(#jc-icon-lens)"
+    filter="url(#jc-glow)"
+  />
+
+  <!-- Browser Engine Nodes -->
+  <circle cx="42" cy="50" r="2.5" fill="#38bdf8" />
+  <circle cx="78" cy="50" r="2.5" fill="#c084fc" />
+  <circle cx="60" cy="70" r="2.5" fill="#60a5fa" />
+
+  <!-- Center Specular Sparkle -->
+  <path
+    d="M60 48 L61.5 54 L67.5 55.5 L61.5 57 L60 63 L58.5 57 L52.5 55.5 L58.5 54 Z"
+    fill="#ffffff"
+    opacity="0.9"
+  />
+</svg>

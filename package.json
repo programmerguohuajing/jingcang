@@ -1,0 +1,26 @@
+{
+  "name": "jingcang-root",
+  "private": true,
+  "version": "1.1.0",
+  "packageManager": "pnpm@11.1.2",
+  "description": "镜舱（JingCang）——完全本地化部署的多浏览器兼容性测试平台",
+  "scripts": {
+    "build": "pnpm --recursive run build",
+    "dev": "pnpm --parallel run dev",
+    "test": "pnpm --recursive run test",
+    "lint": "pnpm --recursive run lint"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

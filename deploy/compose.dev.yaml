@@ -1,0 +1,4 @@
+services:
+  selenium-docker:
+    ports:
+      - "127.0.0.1:${JINGCANG_GRID_HOST_PORT:-4444}:4444"
