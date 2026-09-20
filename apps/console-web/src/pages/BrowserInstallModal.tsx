@@ -53,7 +53,7 @@ export const BrowserInstallModal: React.FC<BrowserInstallModalProps> = ({ onClos
 
   const vendor = VENDORS.find((item) => item.value === browserName)!;
   const image = useMemo(
-    () => `${vendor.repository}:${version.trim() || '<版本号>'}`,
+    () => version.trim() ? `${vendor.repository}:<自动匹配 ${version.trim()}>` : `${vendor.repository}:<版本号>`,
     [vendor.repository, version]
   );
   const active = Boolean(job && !['READY', 'FAILED'].includes(job.status));
@@ -182,7 +182,7 @@ export const BrowserInstallModal: React.FC<BrowserInstallModalProps> = ({ onClos
             <fieldset>
               <legend>02 / 指定版本</legend>
               <label className="browser-version-label" htmlFor="browser-version">
-                浏览器版本 / Selenium 镜像标签
+                浏览器版本
               </label>
               <div className="browser-version-input-wrap">
                 <span>v</span>
@@ -190,7 +190,7 @@ export const BrowserInstallModal: React.FC<BrowserInstallModalProps> = ({ onClos
                   id="browser-version"
                   value={version}
                   onChange={(event) => setVersion(event.target.value)}
-                  placeholder="例如 130.0 或 4.35.0-20250909"
+                  placeholder="例如 140、140.0、140.0.7339.207 或 latest"
                   maxLength={64}
                   autoFocus
                   autoComplete="off"
@@ -198,13 +198,13 @@ export const BrowserInstallModal: React.FC<BrowserInstallModalProps> = ({ onClos
                 />
               </div>
               <p className="browser-version-hint">
-                支持数字、字母、点、短横线与下划线；版本必须是官方 Selenium 镜像仓库中存在的标签。
+                输入浏览器版本即可，后端会自动匹配 Selenium 官方仓库中最新的稳定镜像标签；也支持完整镜像标签与 latest / beta / dev / nightly。
               </p>
             </fieldset>
 
             <div className="browser-image-preview">
               <div>
-                <span>即将拉取</span>
+                <span>官方仓库解析</span>
                 <code>{image}</code>
               </div>
               <span className="browser-image-platform">LINUX / AMD64</span>

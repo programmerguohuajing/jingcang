@@ -93,7 +93,7 @@ export const BrowserInstallRequestSchema = z.object({
     .trim()
     .min(1, '浏览器版本不能为空')
     .max(64, '浏览器版本过长')
-    .regex(/^(?:latest|[0-9][0-9A-Za-z._-]*)$/, '版本只能包含字母、数字、点、短横线或下划线')
+    .regex(/^(?:latest|beta|dev|nightly|[0-9][0-9A-Za-z._-]*)$/, '版本只能使用 latest/beta/dev/nightly 或数字版本号')
 });
 export type BrowserInstallRequest = z.infer<typeof BrowserInstallRequestSchema>;
 

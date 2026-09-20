@@ -25,6 +25,34 @@ const DISPLAY_NAMES: Record<BrowserVendor, string> = {
   chromium: 'Chromium'
 };
 
+export function selectSeleniumTag(requestedVersion: string, tags: string[]): string | null {
+  const requested = requestedVersion.trim();
+  const normalized = /^\d+$/.test(requested) ? `${requested}.0` : requested;
+  const lowerRequested = requested.toLowerCase();
+  const lowerNormalized = normalized.toLowerCase();
+
+  const exact = tags.find((tag) => tag.toLowerCase() === lowerRequested)
+    || tags.find((tag) => tag.toLowerCase() === lowerNormalized);
+  if (exact) return exact;
+
+  const escaped = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const simpleDated = new RegExp(`^${escaped}-\\d{8}$`, 'i');
+  const fullVersionDated = new RegExp(`^${escaped}(?:\\.\\d+){1,3}-\\d{8}$`, 'i');
+
+  const byReleaseDateDesc = (a: string, b: string) => {
+    const dateA = a.match(/-(\d{8})$/)?.[1] || '';
+    const dateB = b.match(/-(\d{8})$/)?.[1] || '';
+    return dateB.localeCompare(dateA);
+  };
+
+  const stableTags = tags.filter((tag) => !/chromedriver|grid-/i.test(tag));
+  const dated = stableTags.filter((tag) => simpleDated.test(tag)).sort(byReleaseDateDesc);
+  if (dated.length > 0) return dated[0];
+
+  const fullDated = stableTags.filter((tag) => fullVersionDated.test(tag)).sort(byReleaseDateDesc);
+  return fullDated[0] || null;
+}
+
 export class BrowserProvisioningService {
   private docker: DockerEngineService;
 
@@ -131,8 +159,11 @@ export class BrowserProvisioningService {
 
     let containerId: string | null = null;
     try {
-      this.updateJob(jobId, 'PULLING', `正在下载官方镜像 ${job.image}`);
-      await this.docker.pullImage(job.image);
+      this.updateJob(jobId, 'PULLING', `正在解析 ${job.browserName} ${job.version} 对应的官方 Selenium 镜像`);
+      const resolvedImage = await this.resolveSeleniumImage(job.browserName, job.version);
+      this.setJobImage(jobId, resolvedImage);
+      this.updateJob(jobId, 'PULLING', `正在下载官方镜像 ${resolvedImage}`);
+      await this.docker.pullImage(resolvedImage);
 
       const existingBrowser = this.catalogService.getBrowserByVendorVersion(job.browserName, job.version);
       const browserId = existingBrowser?.id || this.buildBrowserId(job.browserName, job.version);
@@ -142,7 +173,7 @@ export class BrowserProvisioningService {
         .replace(/-$/g, '')
         .slice(0, 63);
       this.updateJob(jobId, 'STARTING', '镜像下载完成，正在启动并检查浏览器节点');
-      const started = await this.docker.startStandaloneBrowser(job.image, containerName, browserId);
+      const started = await this.docker.startStandaloneBrowser(resolvedImage, containerName, browserId);
       containerId = started.containerId;
       this.setContainerId(jobId, containerId);
 
@@ -154,7 +185,7 @@ export class BrowserProvisioningService {
         displayName: `${DISPLAY_NAMES[job.browserName]} (${job.version})`,
         version: job.version,
         channel: this.inferChannel(job.version),
-        image: job.image,
+        image: resolvedImage,
         gridUrl: started.gridUrl,
         platform: 'linux-amd64',
         enabled: true,
@@ -170,13 +201,81 @@ export class BrowserProvisioningService {
     }
   }
 
+  private async resolveSeleniumImage(
+    browserName: BrowserVendor,
+    requestedVersion: string
+  ): Promise<string> {
+    const repository = IMAGE_REPOSITORIES[browserName];
+    const requested = requestedVersion.trim();
+    const channel = requested.toLowerCase();
+
+    if (['latest', 'beta', 'dev', 'nightly'].includes(channel)) {
+      return `${repository}:${channel}`;
+    }
+
+    const lookupVersion = /^\d+$/.test(requested) ? `${requested}.0` : requested;
+    const endpoint = new URL(`https://hub.docker.com/v2/repositories/${repository}/tags`);
+    endpoint.searchParams.set('page_size', '100');
+    endpoint.searchParams.set('ordering', 'last_updated');
+    endpoint.searchParams.set('name', lookupVersion);
+
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(15_000)
+      });
+    } catch (error: any) {
+      throw new Error(
+        `无法查询 Selenium 官方镜像标签：${error?.message || 'Docker Hub 请求失败'}`
+      );
+    }
+
+    if (!response.ok) {
+      throw new Error(`查询 Selenium 官方镜像标签失败：HTTP ${response.status}`);
+    }
+
+    const payload = await response.json() as {
+      results?: Array<{
+        name?: string;
+        tag_status?: string;
+        images?: Array<{ os?: string; architecture?: string }>;
+      }>;
+    };
+
+    const tags = (payload.results || [])
+      .filter((item) => item.tag_status !== 'inactive')
+      .filter((item) =>
+        !item.images?.length ||
+        item.images.some((image) => image.os === 'linux' && image.architecture === 'amd64')
+      )
+      .map((item) => item.name)
+      .filter((name): name is string => Boolean(name));
+
+    const selectedTag = selectSeleniumTag(requested, tags);
+    if (!selectedTag) {
+      throw new Error(
+        `未找到 ${DISPLAY_NAMES[browserName]} ${requested} 对应的官方 Selenium 镜像标签`
+      );
+    }
+
+    return `${repository}:${selectedTag}`;
+  }
+
   private updateJob(id: string, status: BrowserInstallStatus, statusMessage: string): void {
     const db = getDb(this.config);
     db.prepare(`
       UPDATE browser_install_jobs
-      SET status = ?, status_message = ?, updated_at = ?
+      SET status = ?, status_message = ?, error_message = NULL, updated_at = ?
       WHERE id = ?
     `).run(status, statusMessage, new Date().toISOString(), id);
+  }
+
+  private setJobImage(id: string, image: string): void {
+    const db = getDb(this.config);
+    db.prepare(`
+      UPDATE browser_install_jobs SET image = ?, updated_at = ? WHERE id = ?
+    `).run(image, new Date().toISOString(), id);
   }
 
   private setContainerId(id: string, containerId: string): void {

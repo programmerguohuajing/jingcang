@@ -18,6 +18,7 @@ interface DockerResponse {
 
 export class DockerEngineService {
   private readonly socketPath: string;
+  private apiVersion: string | null = null;
 
   constructor(private config: Config) {
     this.socketPath = process.env.JINGCANG_DOCKER_SOCKET?.trim() || '/var/run/docker.sock';
@@ -189,7 +190,38 @@ export class DockerEngineService {
     return backend;
   }
 
-  private requestDocker(
+  private async requestDocker(
+    method: string,
+    requestPath: string,
+    body?: unknown,
+    streamResponse = false
+  ): Promise<DockerResponse> {
+    const apiVersion = await this.getApiVersion();
+    return this.requestDockerRaw(
+      method,
+      `/v${apiVersion}${requestPath}`,
+      body,
+      streamResponse
+    );
+  }
+
+  private async getApiVersion(): Promise<string> {
+    if (this.apiVersion) return this.apiVersion;
+
+    const response = await this.requestDockerRaw('GET', '/version');
+    try {
+      const payload = JSON.parse(response.body) as { ApiVersion?: string };
+      if (!payload.ApiVersion || !/^\d+\.\d+$/.test(payload.ApiVersion)) {
+        throw new Error('Docker Engine 未返回有效 ApiVersion');
+      }
+      this.apiVersion = payload.ApiVersion;
+      return this.apiVersion;
+    } catch (error: any) {
+      throw new Error(`Docker API 版本协商失败：${error?.message || '响应格式无效'}`);
+    }
+  }
+
+  private requestDockerRaw(
     method: string,
     requestPath: string,
     body?: unknown,
@@ -199,7 +231,7 @@ export class DockerEngineService {
       const payload = body === undefined ? undefined : JSON.stringify(body);
       const request = http.request({
         socketPath: this.socketPath,
-        path: `/v1.43${requestPath}`,
+        path: requestPath,
         method,
         headers: payload ? {
           'Content-Type': 'application/json',
@@ -209,13 +241,17 @@ export class DockerEngineService {
         const chunks: Buffer[] = [];
         let streamError = '';
         let streamBuffer = '';
+        let streamBody = '';
 
         response.on('data', (chunk: Buffer) => {
           if (!streamResponse) {
             chunks.push(chunk);
             return;
           }
-          streamBuffer += chunk.toString('utf8');
+
+          const text = chunk.toString('utf8');
+          streamBody += text;
+          streamBuffer += text;
           let newline = streamBuffer.indexOf('\n');
           while (newline >= 0) {
             const line = streamBuffer.slice(0, newline);
@@ -229,13 +265,25 @@ export class DockerEngineService {
           if (streamResponse && streamBuffer.trim()) {
             this.captureStreamError(streamBuffer, (message) => { streamError = message; });
           }
-          const responseBody = streamResponse ? '' : Buffer.concat(chunks).toString('utf8');
+
+          const responseBody = streamResponse
+            ? streamBody
+            : Buffer.concat(chunks).toString('utf8');
           const statusCode = response.statusCode || 500;
+
           if (statusCode < 200 || statusCode >= 300 || streamError) {
-            reject(new Error(streamError || this.extractDockerError(responseBody) || `Docker API 返回 HTTP ${statusCode}`));
+            reject(new Error(
+              streamError ||
+              this.extractDockerError(responseBody) ||
+              `Docker API 返回 HTTP ${statusCode}`
+            ));
             return;
           }
-          resolve({ statusCode, body: responseBody });
+
+          resolve({
+            statusCode,
+            body: streamResponse ? '' : responseBody
+          });
         });
       });
 
@@ -249,18 +297,29 @@ export class DockerEngineService {
   }
 
   private extractDockerError(body: string): string {
-    try {
-      return JSON.parse(body)?.message || body;
-    } catch {
-      return body;
+    const trimmed = body.trim();
+    if (!trimmed) return '';
+
+    const lines = trimmed.split(/\r?\n/).filter(Boolean).reverse();
+    for (const line of lines) {
+      try {
+        const event = JSON.parse(line);
+        const message = event?.errorDetail?.message || event?.error || event?.message;
+        if (message) return String(message);
+      } catch {
+        // Continue trying other NDJSON lines.
+      }
     }
+
+    return trimmed.length <= 1000 ? trimmed : trimmed.slice(0, 1000);
   }
 
   private captureStreamError(line: string, setError: (message: string) => void): void {
     if (!line.trim()) return;
     try {
       const event = JSON.parse(line);
-      if (event.error) setError(String(event.error));
+      const message = event?.errorDetail?.message || event?.error;
+      if (message) setError(String(message));
     } catch {
       // Ignore non-JSON progress fragments returned by older Docker daemons.
     }
