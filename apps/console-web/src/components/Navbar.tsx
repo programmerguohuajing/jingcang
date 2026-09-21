@@ -108,7 +108,12 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <ThemeToggle />
         <span style={{ fontSize: '14px', color: 'var(--text-main, #cbd5e1)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-          👤 {user.username} <span style={{ fontSize: '12px', color: 'var(--text-subtle, #64748b)' }}>({user.role})</span>
+          👤 {user.username}
+          {user.username.toLowerCase() !== user.role.toLowerCase() && (
+            <span style={{ fontSize: '12px', color: 'var(--text-subtle, #64748b)' }}>
+              ({user.role === 'admin' ? '管理员' : user.role === 'tester' ? '测试员' : user.role})
+            </span>
+          )}
         </span>
         <button
           onClick={handleLogout}

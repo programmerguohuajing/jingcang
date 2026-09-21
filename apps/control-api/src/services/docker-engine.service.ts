@@ -16,12 +16,34 @@ interface DockerResponse {
   body: string;
 }
 
+export function buildBrowserComposeLabels(
+  browserId: string,
+  serviceName: string,
+  projectName = 'jingcang-poc'
+): Record<string, string> {
+  return {
+    'com.jingcang.managed': 'true',
+    'com.jingcang.browser-id': browserId,
+    'com.jingcang.container-group': projectName,
+    'com.docker.compose.project': projectName,
+    'com.docker.compose.service': serviceName,
+    'com.docker.compose.container-number': '1',
+    'com.docker.compose.oneoff': 'False'
+  };
+}
+
 export class DockerEngineService {
   private readonly socketPath: string;
+  private readonly browserComposeProject: string;
+  private readonly browserComposeNetwork: string;
   private apiVersion: string | null = null;
 
   constructor(private config: Config) {
     this.socketPath = process.env.JINGCANG_DOCKER_SOCKET?.trim() || '/var/run/docker.sock';
+    this.browserComposeProject =
+      process.env.JINGCANG_BROWSER_COMPOSE_PROJECT?.trim() || 'jingcang-poc';
+    this.browserComposeNetwork =
+      process.env.JINGCANG_BROWSER_COMPOSE_NETWORK?.trim() || 'jingcang_poc';
   }
 
   public async pullImage(image: string): Promise<void> {
@@ -56,24 +78,28 @@ export class DockerEngineService {
       'SE_START_VNC=true'
     ];
 
+    const composeService = this.buildComposeServiceName(browserId);
+
     if (this.canUseSocket()) {
-      const networkName = await this.resolveBackendNetwork();
+      const backendNetwork = await this.resolveBackendNetwork();
+      const pocNetwork = await this.ensureBrowserGroupNetwork();
       const createResponse = await this.requestDocker(
         'POST',
         `/containers/create?name=${encodeURIComponent(containerName)}`,
         {
           Image: image,
           Env: environment,
-          Labels: {
-            'com.jingcang.managed': 'true',
-            'com.jingcang.browser-id': browserId
-          },
+          Labels: buildBrowserComposeLabels(
+            browserId,
+            composeService,
+            this.browserComposeProject
+          ),
           ExposedPorts: {
             '4444/tcp': {},
             '7900/tcp': {}
           },
           HostConfig: {
-            NetworkMode: networkName,
+            NetworkMode: backendNetwork,
             ShmSize: 2 * 1024 * 1024 * 1024,
             RestartPolicy: { Name: 'unless-stopped', MaximumRetryCount: 0 }
           }
@@ -82,7 +108,22 @@ export class DockerEngineService {
       const created = JSON.parse(createResponse.body) as { Id?: string };
       if (!created.Id) throw new Error('Docker 未返回新节点的容器 ID');
 
-      await this.requestDocker('POST', `/containers/${encodeURIComponent(created.Id)}/start`);
+      try {
+        await this.requestDocker(
+          'POST',
+          `/networks/${encodeURIComponent(pocNetwork)}/connect`,
+          {
+            Container: created.Id,
+            EndpointConfig: {
+              Aliases: [containerName, composeService]
+            }
+          }
+        );
+        await this.requestDocker('POST', `/containers/${encodeURIComponent(created.Id)}/start`);
+      } catch (error) {
+        await this.removeContainer(created.Id);
+        throw error;
+      }
       return {
         containerId: created.Id,
         gridUrl: `http://${containerName}:4444`
@@ -94,10 +135,15 @@ export class DockerEngineService {
       '--name', containerName,
       '--restart', 'unless-stopped',
       '--shm-size', '2g',
-      '-p', '127.0.0.1::4444',
-      '--label', 'com.jingcang.managed=true',
-      '--label', `com.jingcang.browser-id=${browserId}`
+      '-p', '127.0.0.1::4444'
     ];
+    const pocNetwork = await this.ensureBrowserGroupNetworkCli();
+    args.push('--network', pocNetwork);
+    for (const [key, value] of Object.entries(
+      buildBrowserComposeLabels(browserId, composeService, this.browserComposeProject)
+    )) {
+      args.push('--label', `${key}=${value}`);
+    }
     for (const env of environment) args.push('-e', env);
     args.push(image);
 
@@ -175,6 +221,65 @@ export class DockerEngineService {
     const separator = image.lastIndexOf(':');
     if (separator <= image.lastIndexOf('/')) return [image, 'latest'];
     return [image.slice(0, separator), image.slice(separator + 1)];
+  }
+
+  private buildComposeServiceName(browserId: string): string {
+    return `dynamic-${browserId.toLowerCase().replace(/[^a-z0-9-]+/g, '-')}`
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 63);
+  }
+
+  private getBrowserGroupNetworkName(): string {
+    return `${this.browserComposeProject}_${this.browserComposeNetwork}`;
+  }
+
+  private async ensureBrowserGroupNetwork(): Promise<string> {
+    const networkName = this.getBrowserGroupNetworkName();
+
+    try {
+      await this.requestDocker('GET', `/networks/${encodeURIComponent(networkName)}`);
+      return networkName;
+    } catch {
+      try {
+        await this.requestDocker('POST', '/networks/create', {
+          Name: networkName,
+          CheckDuplicate: true,
+          Driver: 'bridge',
+          Labels: {
+            'com.docker.compose.project': this.browserComposeProject,
+            'com.docker.compose.network': this.browserComposeNetwork
+          }
+        });
+        return networkName;
+      } catch (error: any) {
+        try {
+          await this.requestDocker('GET', `/networks/${encodeURIComponent(networkName)}`);
+          return networkName;
+        } catch {
+          throw new Error(
+            `无法创建或获取浏览器容器组网络 ${networkName}：${error?.message || '未知错误'}`
+          );
+        }
+      }
+    }
+  }
+
+  private async ensureBrowserGroupNetworkCli(): Promise<string> {
+    const networkName = this.getBrowserGroupNetworkName();
+    try {
+      await this.runDockerCli(['network', 'inspect', networkName], 30_000);
+      return networkName;
+    } catch {
+      await this.runDockerCli([
+        'network', 'create',
+        '--driver', 'bridge',
+        '--label', `com.docker.compose.project=${this.browserComposeProject}`,
+        '--label', `com.docker.compose.network=${this.browserComposeNetwork}`,
+        networkName
+      ], 30_000);
+      return networkName;
+    }
   }
 
   private async resolveBackendNetwork(): Promise<string> {
