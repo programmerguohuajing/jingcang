@@ -72,14 +72,17 @@ jobs:
           cat /opt/jingcang/browsers.tar.part-* | docker load
           echo "[JingCang] Browser image preload completed."
           EOF
-          cat > /tmp/jingcang-browser-bundle/Dockerfile <<'EOF'
-          FROM docker:29-cli
-          WORKDIR /opt/jingcang
-          COPY browsers.tar.part-* /opt/jingcang/
-          COPY preload.sh /usr/local/bin/jingcang-browser-preload
-          RUN chmod +x /usr/local/bin/jingcang-browser-preload
-          ENTRYPOINT ["/usr/local/bin/jingcang-browser-preload"]
-          EOF
+          {
+            echo 'FROM docker:29-cli'
+            echo 'WORKDIR /opt/jingcang'
+            for part in /tmp/jingcang-browser-bundle/browsers.tar.part-*; do
+              name="$(basename "$part")"
+              echo "COPY $name /opt/jingcang/$name"
+            done
+            echo 'COPY preload.sh /usr/local/bin/jingcang-browser-preload'
+            echo 'RUN chmod +x /usr/local/bin/jingcang-browser-preload'
+            echo 'ENTRYPOINT ["/usr/local/bin/jingcang-browser-preload"]'
+          } > /tmp/jingcang-browser-bundle/Dockerfile
 
       - name: Build and push Browser Bundle
         uses: docker/build-push-action@v6
