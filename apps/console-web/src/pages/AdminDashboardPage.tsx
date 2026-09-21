@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Filter
 } from 'lucide-react';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import {
   AdminUserItem,
   ApprovalRequestItem,
@@ -44,6 +45,11 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Approval Filter
   const [approvalStatusFilter, setApprovalStatusFilter] = useState<'ALL' | ApprovalStatus>('ALL');
+
+  // User Status Toggle Confirm Modal
+  const [pendingUserToggle, setPendingUserToggle] = useState<AdminUserItem | null>(null);
+  const [userToggleSaving, setUserToggleSaving] = useState(false);
+  const [userToggleError, setUserToggleError] = useState('');
 
   // Assign Browser Permissions Modal
   const [assignUser, setAssignUser] = useState<AdminUserItem | null>(null);
@@ -141,19 +147,31 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
-  // Toggle user status
-  const handleToggleUserStatus = async (user: AdminUserItem) => {
+  // Toggle user status trigger
+  const handleToggleUserStatus = (user: AdminUserItem) => {
+    setUserToggleError('');
+    setPendingUserToggle(user);
+  };
+
+  // Confirm user status toggle
+  const handleConfirmUserToggle = async () => {
+    if (!pendingUserToggle) return;
+    const user = pendingUserToggle;
     const next = !user.enabled;
     const actionText = next ? '启用' : '停用';
-    if (!confirm(`确定要${actionText}用户 "${user.username}" 吗？`)) return;
+    setUserToggleSaving(true);
+    setUserToggleError('');
 
     try {
       await api.toggleUserStatus(user.id, next);
       setNotice({ type: 'success', message: `已成功${actionText}用户 ${user.username}` });
+      setPendingUserToggle(null);
       const updated = await api.getAdminUsers();
       setUsers(updated);
     } catch (err: any) {
-      setNotice({ type: 'error', message: err.message || '修改用户状态失败' });
+      setUserToggleError(err.message || '修改用户状态失败');
+    } finally {
+      setUserToggleSaving(false);
     }
   };
 
@@ -1394,6 +1412,34 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(pendingUserToggle)}
+        tone={pendingUserToggle?.enabled ? 'danger' : 'primary'}
+        eyebrow="用户账号状态变动"
+        title={
+          pendingUserToggle
+            ? pendingUserToggle.enabled
+              ? `确认停用用户 "${pendingUserToggle.username}"？`
+              : `确认启用用户 "${pendingUserToggle.username}"？`
+            : ''
+        }
+        description={
+          pendingUserToggle?.enabled
+            ? '停用后该用户将无法登录控制台或新建/使用任何测试舱会话，已有连线也会受阻。'
+            : '启用后该用户恢复登录控制台权限，并根据其授权策略自由创建测试舱会话。'
+        }
+        subject={pendingUserToggle ? `账号: ${pendingUserToggle.username} (${pendingUserToggle.role === 'admin' ? '系统管理员' : '测试人员'})` : undefined}
+        confirmLabel={pendingUserToggle?.enabled ? '确认停用账号' : '确认启用账号'}
+        loading={userToggleSaving}
+        error={userToggleError}
+        onConfirm={handleConfirmUserToggle}
+        onCancel={() => {
+          if (userToggleSaving) return;
+          setPendingUserToggle(null);
+          setUserToggleError('');
+        }}
+      />
     </div>
   );
 };

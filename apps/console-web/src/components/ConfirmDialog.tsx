@@ -130,15 +130,17 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         </div>
 
         <footer className="confirm-dialog-actions">
-          <button
-            ref={cancelButtonRef}
-            type="button"
-            className="btn-secondary"
-            disabled={loading}
-            onClick={onCancel}
-          >
-            {cancelLabel}
-          </button>
+          {cancelLabel ? (
+            <button
+              ref={cancelButtonRef}
+              type="button"
+              className="btn-secondary"
+              disabled={loading}
+              onClick={onCancel}
+            >
+              {cancelLabel}
+            </button>
+          ) : null}
           <button
             type="button"
             className={`confirm-dialog-confirm confirm-dialog-confirm-${tone}`}

@@ -67,6 +67,7 @@ export const ViewerPage: React.FC = () => {
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [endConfirmLoading, setEndConfirmLoading] = useState(false);
   const [endConfirmError, setEndConfirmError] = useState('');
+  const [actionNoticeModal, setActionNoticeModal] = useState('');
   const numpadModeRef = useRef<'digit' | 'nav'>('digit');
   numpadModeRef.current = numpadMode;
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -314,7 +315,7 @@ export const ViewerPage: React.FC = () => {
       const updated = await api.extendSession(sessionId, 30);
       setSession(updated);
     } catch (err: any) {
-      alert(err.message || '延长测试舱时间失败');
+      setActionNoticeModal(err.message || '延长测试舱时间失败');
     }
   };
 
@@ -578,6 +579,18 @@ export const ViewerPage: React.FC = () => {
           setEndConfirmOpen(false);
           setEndConfirmError('');
         }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(actionNoticeModal)}
+        tone="warning"
+        eyebrow="系统提示"
+        title="延长使用时长未成功"
+        description={actionNoticeModal}
+        confirmLabel="我知道了"
+        cancelLabel=""
+        onConfirm={() => setActionNoticeModal('')}
+        onCancel={() => setActionNoticeModal('')}
       />
     </div>
   );
