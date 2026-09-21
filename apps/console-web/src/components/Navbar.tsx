@@ -28,8 +28,8 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
 
   return (
     <nav style={{
-      backgroundColor: 'var(--nav-bg, #1e293b)',
-      borderBottom: '1px solid var(--nav-border, #334155)',
+      backgroundColor: 'var(--nav-bg)',
+      borderBottom: '1px solid var(--nav-border)',
       padding: '0 24px',
       height: '64px',
       display: 'flex',

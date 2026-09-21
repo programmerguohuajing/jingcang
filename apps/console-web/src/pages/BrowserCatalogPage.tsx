@@ -410,8 +410,8 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
-                      backgroundColor: 'var(--bg-subtle, #0f172a)',
-                      border: b.enabled ? (b.isDefault ? '1px solid #059669' : '1px solid var(--border-color, #334155)') : '1px solid #dc2626',
+                      backgroundColor: 'var(--bg-surface)',
+                      border: b.enabled ? (b.isDefault ? '1px solid #059669' : '1px solid var(--border-color)') : '1px solid #dc2626',
                       borderRadius: '10px',
                       padding: '20px',
                       opacity: b.enabled ? 1 : 0.72,
@@ -421,7 +421,7 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                         <div>
-                          <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--text-main, #f8fafc)', fontWeight: 600 }}>
+                          <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--text-main)', fontWeight: 600 }}>
                             {b.displayName || `${group.meta.name} (${b.version})`}
                           </h3>
                           <div style={{ fontSize: '12px', color: 'var(--text-subtle, #64748b)', marginTop: '2px' }}>
@@ -453,13 +453,13 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                         alignItems: 'center',
                         gap: '8px',
                         marginBottom: '12px',
-                        backgroundColor: 'var(--bg-surface, #1e293b)',
-                        border: '1px solid var(--border-subtle, #334155)',
+                        backgroundColor: 'var(--bg-subtle)',
+                        border: '1px solid var(--border-subtle)',
                         padding: '6px 10px',
                         borderRadius: '6px'
                       }}>
-                        <span style={{ fontSize: '12px', color: 'var(--text-muted, #94a3b8)' }}>运行版本:</span>
-                        <strong style={{ fontSize: '13px', color: 'var(--primary-color, #38bdf8)' }}>v{b.version}</strong>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>运行版本:</span>
+                        <strong style={{ fontSize: '13px', color: 'var(--primary-color)' }}>v{b.version}</strong>
                         <span style={{
                           fontSize: '11px',
                           color: '#6366f1',
@@ -471,24 +471,24 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                         </span>
                       </div>
 
-                      <div style={{ fontSize: '12px', color: 'var(--text-subtle, #64748b)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ color: 'var(--text-muted, #94a3b8)' }}>镜像:</span>
-                        <code style={{ color: 'var(--code-text, #a7f3d0)', fontSize: '11px', wordBreak: 'break-all' }}>{b.image}</code>
+                      <div style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>镜像:</span>
+                        <code style={{ color: 'var(--code-text)', fontSize: '11px', wordBreak: 'break-all' }}>{b.image}</code>
                       </div>
 
                       {b.gridUrl && (
-                        <div style={{ fontSize: '11px', color: 'var(--text-subtle, #64748b)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Server size={12} style={{ color: 'var(--primary-color, #38bdf8)' }} />
-                          <span style={{ color: 'var(--text-muted, #94a3b8)' }}>调度节点:</span>
-                          <code style={{ color: 'var(--primary-color, #38bdf8)' }}>{b.gridUrl}</code>
+                        <div style={{ fontSize: '11px', color: 'var(--text-subtle)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Server size={12} style={{ color: 'var(--primary-color)' }} />
+                          <span style={{ color: 'var(--text-muted)' }}>调度节点:</span>
+                          <code style={{ color: 'var(--primary-color)' }}>{b.gridUrl}</code>
                         </div>
                       )}
 
                       <div style={{
                         fontSize: '11px',
-                        color: 'var(--text-muted, #94a3b8)',
-                        backgroundColor: 'var(--bg-surface, #1e293b)',
-                        border: '1px solid var(--border-subtle, #334155)',
+                        color: 'var(--text-muted)',
+                        backgroundColor: 'var(--bg-subtle)',
+                        border: '1px solid var(--border-subtle)',
                         padding: '8px 10px',
                         borderRadius: '6px',
                         display: 'flex',
@@ -503,7 +503,7 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                     <div style={{
                       marginTop: '18px',
                       paddingTop: '14px',
-                      borderTop: '1px solid var(--border-subtle, #1e293b)',
+                      borderTop: '1px solid var(--border-subtle)',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',

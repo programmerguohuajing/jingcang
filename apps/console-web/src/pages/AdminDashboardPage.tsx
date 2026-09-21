@@ -289,7 +289,7 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', margin: 0, color: 'var(--text-main, #f8fafc)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h1 style={{ fontSize: '24px', margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ShieldCheck size={26} style={{ color: 'var(--primary-color, #38bdf8)' }} />
             管理与授权控制台 (Admin Dashboard)
           </h1>
@@ -324,7 +324,7 @@ export const AdminDashboardPage: React.FC = () => {
       <div style={{
         display: 'flex',
         gap: '4px',
-        borderBottom: '1px solid var(--border-color, #334155)',
+        borderBottom: '1px solid var(--border-color)',
         marginBottom: '28px'
       }}>
         <button
@@ -476,8 +476,8 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="card" style={{ padding: '24px', backgroundColor: 'var(--bg-subtle, #0f172a)' }}>
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: 'var(--text-main, #f8fafc)' }}>
+          <div className="card" style={{ padding: '24px', backgroundColor: 'var(--bg-subtle)' }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', color: 'var(--text-main)' }}>
               系统运行参数与网络配置
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', fontSize: '13px' }}>
@@ -489,7 +489,7 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
               <div>
                 <span style={{ color: 'var(--text-muted, #94a3b8)' }}>总测试舱调度记录: </span>
-                <strong style={{ color: 'var(--text-main, #f8fafc)' }}>{status?.totalSessions || 0} 次</strong>
+                <strong style={{ color: 'var(--text-main)' }}>{status?.totalSessions || 0} 次</strong>
               </div>
               <div>
                 <span style={{ color: 'var(--text-muted, #94a3b8)' }}>待处理权限/安装审批: </span>
@@ -507,13 +507,13 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{
             padding: '16px 20px',
-            backgroundColor: 'var(--table-header-bg, #0f172a)',
-            borderBottom: '1px solid var(--border-color, #334155)',
+            backgroundColor: 'var(--table-header-bg)',
+            borderBottom: '1px solid var(--border-color)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
-            <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main, #f8fafc)' }}>
+            <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
               <Users size={18} /> 用户账号与浏览器授权矩阵
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-muted, #94a3b8)' }}>
@@ -523,7 +523,7 @@ export const AdminDashboardPage: React.FC = () => {
 
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
             <thead>
-              <tr style={{ color: 'var(--text-muted, #94a3b8)', borderBottom: '1px solid var(--border-color, #334155)' }}>
+              <tr style={{ color: 'var(--text-muted, #94a3b8)', borderBottom: '1px solid var(--border-color)' }}>
                 <th style={{ padding: '12px 16px' }}>用户名</th>
                 <th style={{ padding: '12px 16px' }}>系统角色</th>
                 <th style={{ padding: '12px 16px' }}>账号状态</th>
@@ -539,7 +539,7 @@ export const AdminDashboardPage: React.FC = () => {
                 const allowedCount = u.allowedBrowserIds?.length || 0;
                 return (
                   <tr key={u.id} style={{ borderBottom: '1px solid var(--border-subtle, #1e293b)' }}>
-                    <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--text-main, #f8fafc)' }}>
+                    <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--text-main)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div style={{
                           width: '28px',
@@ -608,7 +608,7 @@ export const AdminDashboardPage: React.FC = () => {
                                     fontSize: '11px',
                                     padding: '2px 6px',
                                     borderRadius: '4px',
-                                    backgroundColor: 'var(--bg-surface, #1e293b)',
+                                    backgroundColor: 'var(--bg-surface)',
                                     border: '1px solid var(--border-subtle, #334155)',
                                     color: 'var(--text-muted, #cbd5e1)'
                                   }}
@@ -704,7 +704,7 @@ export const AdminDashboardPage: React.FC = () => {
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
               <thead>
-                <tr style={{ color: 'var(--text-muted, #94a3b8)', borderBottom: '1px solid var(--border-color, #334155)' }}>
+                <tr style={{ color: 'var(--text-muted, #94a3b8)', borderBottom: '1px solid var(--border-color)' }}>
                   <th style={{ padding: '12px 16px' }}>申请时间</th>
                   <th style={{ padding: '12px 16px' }}>工单类型</th>
                   <th style={{ padding: '12px 16px' }}>申请人</th>
@@ -746,11 +746,11 @@ export const AdminDashboardPage: React.FC = () => {
                             {item.type === 'BROWSER_ACCESS' ? '🔑 浏览器访问权限' : '📦 接入新版本'}
                           </span>
                         </td>
-                        <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--text-main, #f8fafc)' }}>
+                        <td style={{ padding: '12px 16px', fontWeight: 'bold', color: 'var(--text-main)' }}>
                           {item.username}
                         </td>
                         <td style={{ padding: '12px 16px' }}>
-                          <strong style={{ color: 'var(--text-main, #f8fafc)' }}>{targetDisplay}</strong>
+                          <strong style={{ color: 'var(--text-main)' }}>{targetDisplay}</strong>
                           {item.targetId && (
                             <div style={{ fontSize: '11px', color: 'var(--text-subtle, #64748b)' }}>
                               <code>{item.targetId}</code>
@@ -845,19 +845,19 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{
             padding: '16px 20px',
-            backgroundColor: 'var(--table-header-bg, #0f172a)',
-            borderBottom: '1px solid var(--border-color, #334155)',
+            backgroundColor: 'var(--table-header-bg)',
+            borderBottom: '1px solid var(--border-color)',
             fontWeight: 'bold',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            color: 'var(--text-main, #f8fafc)'
+            color: 'var(--text-main)'
           }}>
             <FileText size={18} /> 最近 100 条安全审计日志 (Audit Log)
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
             <thead>
-              <tr style={{ color: 'var(--text-muted, #94a3b8)', borderBottom: '1px solid var(--border-color, #334155)' }}>
+              <tr style={{ color: 'var(--text-muted, #94a3b8)', borderBottom: '1px solid var(--border-color)' }}>
                 <th style={{ padding: '10px 16px' }}>时间</th>
                 <th style={{ padding: '10px 16px' }}>事件类型</th>
                 <th style={{ padding: '10px 16px' }}>操作用户</th>
@@ -871,7 +871,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <td style={{ padding: '10px 16px', color: 'var(--text-subtle, #64748b)' }}>
                     {new Date(a.created_at).toLocaleString()}
                   </td>
-                  <td style={{ padding: '10px 16px', fontWeight: 'bold', color: 'var(--text-main, #f8fafc)' }}>
+                  <td style={{ padding: '10px 16px', fontWeight: 'bold', color: 'var(--text-main)' }}>
                     {a.event_type}
                   </td>
                   <td style={{ padding: '10px 16px', color: 'var(--text-muted, #cbd5e1)' }}>
@@ -904,8 +904,8 @@ export const AdminDashboardPage: React.FC = () => {
           backdropFilter: 'blur(3px)'
         }}>
           <div style={{
-            backgroundColor: 'var(--bg-surface, #1e293b)',
-            border: '1px solid var(--border-color, #334155)',
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid var(--border-color)',
             borderRadius: '12px',
             width: '640px',
             maxWidth: '90vw',
@@ -918,13 +918,13 @@ export const AdminDashboardPage: React.FC = () => {
             {/* Modal Header */}
             <div style={{
               padding: '18px 24px',
-              borderBottom: '1px solid var(--border-color, #334155)',
+              borderBottom: '1px solid var(--border-color)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
               <div>
-                <h2 style={{ fontSize: '18px', margin: 0, color: 'var(--text-main, #f8fafc)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{ fontSize: '18px', margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Settings size={20} style={{ color: 'var(--primary-color, #38bdf8)' }} />
                   配置浏览器权限 - {assignUser.username}
                 </h2>
@@ -943,21 +943,21 @@ export const AdminDashboardPage: React.FC = () => {
             {/* Modal Body */}
             <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '10px', color: 'var(--text-main, #f8fafc)' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '10px', color: 'var(--text-main)' }}>
                   权限模式
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div
                     onClick={() => setAssignPolicy('ALL')}
                     style={{
-                      border: assignPolicy === 'ALL' ? '2px solid var(--primary-color, #38bdf8)' : '1px solid var(--border-color, #334155)',
+                      border: assignPolicy === 'ALL' ? '2px solid var(--primary-color, #38bdf8)' : '1px solid var(--border-color)',
                       borderRadius: '8px',
                       padding: '14px',
                       cursor: 'pointer',
-                      backgroundColor: assignPolicy === 'ALL' ? 'rgba(56, 189, 248, 0.08)' : 'var(--bg-subtle, #0f172a)'
+                      backgroundColor: assignPolicy === 'ALL' ? 'rgba(56, 189, 248, 0.08)' : 'var(--bg-subtle)'
                     }}
                   >
-                    <div style={{ fontWeight: 'bold', color: assignPolicy === 'ALL' ? 'var(--primary-color, #38bdf8)' : 'var(--text-main, #f8fafc)', fontSize: '14px' }}>
+                    <div style={{ fontWeight: 'bold', color: assignPolicy === 'ALL' ? 'var(--primary-color, #38bdf8)' : 'var(--text-main)', fontSize: '14px' }}>
                       🌐 允许使用全部规格
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted, #94a3b8)', marginTop: '4px' }}>
@@ -968,14 +968,14 @@ export const AdminDashboardPage: React.FC = () => {
                   <div
                     onClick={() => setAssignPolicy('CUSTOM')}
                     style={{
-                      border: assignPolicy === 'CUSTOM' ? '2px solid var(--primary-color, #38bdf8)' : '1px solid var(--border-color, #334155)',
+                      border: assignPolicy === 'CUSTOM' ? '2px solid var(--primary-color, #38bdf8)' : '1px solid var(--border-color)',
                       borderRadius: '8px',
                       padding: '14px',
                       cursor: 'pointer',
-                      backgroundColor: assignPolicy === 'CUSTOM' ? 'rgba(56, 189, 248, 0.08)' : 'var(--bg-subtle, #0f172a)'
+                      backgroundColor: assignPolicy === 'CUSTOM' ? 'rgba(56, 189, 248, 0.08)' : 'var(--bg-subtle)'
                     }}
                   >
-                    <div style={{ fontWeight: 'bold', color: assignPolicy === 'CUSTOM' ? 'var(--primary-color, #38bdf8)' : 'var(--text-main, #f8fafc)', fontSize: '14px' }}>
+                    <div style={{ fontWeight: 'bold', color: assignPolicy === 'CUSTOM' ? 'var(--primary-color, #38bdf8)' : 'var(--text-main)', fontSize: '14px' }}>
                       🎯 细粒度自定义授权
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted, #94a3b8)', marginTop: '4px' }}>
@@ -989,7 +989,7 @@ export const AdminDashboardPage: React.FC = () => {
               {assignPolicy === 'CUSTOM' && (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <label style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--text-main, #f8fafc)' }}>
+                    <label style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--text-main)' }}>
                       选择允许访问的浏览器规格 ({assignAllowedIds.length} / {browsers.length} 已选)
                     </label>
                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -1022,11 +1022,11 @@ export const AdminDashboardPage: React.FC = () => {
                             border: '1px solid var(--border-subtle, #334155)',
                             borderRadius: '8px',
                             padding: '12px 16px',
-                            backgroundColor: 'var(--bg-subtle, #0f172a)'
+                            backgroundColor: 'var(--bg-subtle)'
                           }}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                            <span style={{ fontWeight: 'bold', fontSize: '13px', color: 'var(--text-main, #f8fafc)' }}>
+                            <span style={{ fontWeight: 'bold', fontSize: '13px', color: 'var(--text-main)' }}>
                               {group.name} ({group.items.length})
                             </span>
                             <button
@@ -1067,9 +1067,9 @@ export const AdminDashboardPage: React.FC = () => {
                                     padding: '6px 10px',
                                     borderRadius: '6px',
                                     cursor: 'pointer',
-                                    backgroundColor: checked ? 'rgba(56, 189, 248, 0.12)' : 'var(--bg-surface, #1e293b)',
-                                    border: checked ? '1px solid var(--primary-color, #38bdf8)' : '1px solid var(--border-color, #334155)',
-                                    color: checked ? 'var(--text-main, #f8fafc)' : 'var(--text-muted, #cbd5e1)'
+                                    backgroundColor: checked ? 'rgba(56, 189, 248, 0.12)' : 'var(--bg-surface)',
+                                    border: checked ? '1px solid var(--primary-color, #38bdf8)' : '1px solid var(--border-color)',
+                                    color: checked ? 'var(--text-main)' : 'var(--text-muted, #cbd5e1)'
                                   }}
                                 >
                                   <input
@@ -1102,11 +1102,11 @@ export const AdminDashboardPage: React.FC = () => {
             {/* Modal Footer */}
             <div style={{
               padding: '16px 24px',
-              borderTop: '1px solid var(--border-color, #334155)',
+              borderTop: '1px solid var(--border-color)',
               display: 'flex',
               justifyContent: 'flex-end',
               gap: '12px',
-              backgroundColor: 'var(--table-header-bg, #0f172a)'
+              backgroundColor: 'var(--table-header-bg)'
             }}>
               <button
                 type="button"
@@ -1146,8 +1146,8 @@ export const AdminDashboardPage: React.FC = () => {
           backdropFilter: 'blur(3px)'
         }}>
           <div style={{
-            backgroundColor: 'var(--bg-surface, #1e293b)',
-            border: '1px solid var(--border-color, #334155)',
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid var(--border-color)',
             borderRadius: '12px',
             width: '460px',
             maxWidth: '90vw',
@@ -1156,12 +1156,12 @@ export const AdminDashboardPage: React.FC = () => {
           }}>
             <div style={{
               padding: '18px 24px',
-              borderBottom: '1px solid var(--border-color, #334155)',
+              borderBottom: '1px solid var(--border-color)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
-              <h2 style={{ fontSize: '18px', margin: 0, color: 'var(--text-main, #f8fafc)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{ fontSize: '18px', margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <UserPlus size={20} style={{ color: 'var(--primary-color, #38bdf8)' }} />
                 新建平台账号
               </h2>
@@ -1189,7 +1189,7 @@ export const AdminDashboardPage: React.FC = () => {
               )}
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', marginBottom: '6px', color: 'var(--text-main, #f8fafc)' }}>
+                <label style={{ display: 'block', fontSize: '13px', marginBottom: '6px', color: 'var(--text-main)' }}>
                   用户名
                 </label>
                 <input
@@ -1202,16 +1202,16 @@ export const AdminDashboardPage: React.FC = () => {
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '6px',
-                    backgroundColor: 'var(--bg-subtle, #0f172a)',
-                    border: '1px solid var(--border-color, #334155)',
-                    color: 'var(--text-main, #f8fafc)',
+                    backgroundColor: 'var(--bg-subtle)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)',
                     fontSize: '14px'
                   }}
                 />
               </div>
 
               <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', marginBottom: '6px', color: 'var(--text-main, #f8fafc)' }}>
+                <label style={{ display: 'block', fontSize: '13px', marginBottom: '6px', color: 'var(--text-main)' }}>
                   初始登录密码
                 </label>
                 <input
@@ -1224,16 +1224,16 @@ export const AdminDashboardPage: React.FC = () => {
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '6px',
-                    backgroundColor: 'var(--bg-subtle, #0f172a)',
-                    border: '1px solid var(--border-color, #334155)',
-                    color: 'var(--text-main, #f8fafc)',
+                    backgroundColor: 'var(--bg-subtle)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)',
                     fontSize: '14px'
                   }}
                 />
               </div>
 
               <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '13px', marginBottom: '6px', color: 'var(--text-main, #f8fafc)' }}>
+                <label style={{ display: 'block', fontSize: '13px', marginBottom: '6px', color: 'var(--text-main)' }}>
                   系统角色
                 </label>
                 <select
@@ -1243,9 +1243,9 @@ export const AdminDashboardPage: React.FC = () => {
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '6px',
-                    backgroundColor: 'var(--bg-subtle, #0f172a)',
-                    border: '1px solid var(--border-color, #334155)',
-                    color: 'var(--text-main, #f8fafc)',
+                    backgroundColor: 'var(--bg-subtle)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)',
                     fontSize: '14px'
                   }}
                 >
@@ -1292,8 +1292,8 @@ export const AdminDashboardPage: React.FC = () => {
           backdropFilter: 'blur(3px)'
         }}>
           <div style={{
-            backgroundColor: 'var(--bg-surface, #1e293b)',
-            border: '1px solid var(--border-color, #334155)',
+            backgroundColor: 'var(--bg-surface)',
+            border: '1px solid var(--border-color)',
             borderRadius: '12px',
             width: '500px',
             maxWidth: '90vw',
@@ -1302,12 +1302,12 @@ export const AdminDashboardPage: React.FC = () => {
           }}>
             <div style={{
               padding: '18px 24px',
-              borderBottom: '1px solid var(--border-color, #334155)',
+              borderBottom: '1px solid var(--border-color)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
-              <h2 style={{ fontSize: '18px', margin: 0, color: 'var(--text-main, #f8fafc)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{ fontSize: '18px', margin: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {reviewAction === 'APPROVE' ? (
                   <CheckCircle size={20} style={{ color: '#34d399' }} />
                 ) : (
@@ -1325,7 +1325,7 @@ export const AdminDashboardPage: React.FC = () => {
 
             <div style={{ padding: '24px' }}>
               <div style={{
-                backgroundColor: 'var(--bg-subtle, #0f172a)',
+                backgroundColor: 'var(--bg-subtle)',
                 border: '1px solid var(--border-subtle, #334155)',
                 borderRadius: '8px',
                 padding: '14px',
@@ -1334,7 +1334,7 @@ export const AdminDashboardPage: React.FC = () => {
               }}>
                 <div style={{ marginBottom: '6px' }}>
                   <span style={{ color: 'var(--text-muted, #94a3b8)' }}>申请人: </span>
-                  <strong style={{ color: 'var(--text-main, #f8fafc)' }}>{reviewItem.username}</strong>
+                  <strong style={{ color: 'var(--text-main)' }}>{reviewItem.username}</strong>
                 </div>
                 <div style={{ marginBottom: '6px' }}>
                   <span style={{ color: 'var(--text-muted, #94a3b8)' }}>申请目标: </span>
@@ -1347,7 +1347,7 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
 
               <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '13px', marginBottom: '6px', color: 'var(--text-main, #f8fafc)' }}>
+                <label style={{ display: 'block', fontSize: '13px', marginBottom: '6px', color: 'var(--text-main)' }}>
                   审批批注说明 (可选)
                 </label>
                 <textarea
@@ -1359,9 +1359,9 @@ export const AdminDashboardPage: React.FC = () => {
                     width: '100%',
                     padding: '8px 12px',
                     borderRadius: '6px',
-                    backgroundColor: 'var(--bg-subtle, #0f172a)',
-                    border: '1px solid var(--border-color, #334155)',
-                    color: 'var(--text-main, #f8fafc)',
+                    backgroundColor: 'var(--bg-subtle)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)',
                     fontSize: '13px',
                     resize: 'vertical'
                   }}

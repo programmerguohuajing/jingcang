@@ -38,7 +38,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       minHeight: '100vh',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: 'var(--bg-app, #0f172a)',
+      backgroundColor: 'var(--bg-app)',
       position: 'relative',
       padding: '20px',
       transition: 'background-color 0.2s ease'
@@ -68,7 +68,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: 'var(--text-muted, #cbd5e1)' }}>用户名</label>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: 'var(--text-muted)' }}>用户名</label>
             <div style={{ position: 'relative' }}>
               <input
                 type="text"
@@ -81,7 +81,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </div>
 
           <div>
-            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: 'var(--text-muted, #cbd5e1)' }}>密码</label>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', color: 'var(--text-muted)' }}>密码</label>
             <input
               type="password"
               value={password}
@@ -96,7 +96,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </button>
         </form>
 
-        <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-subtle, #64748b)' }}>
+        <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-subtle)' }}>
           完全本地化部署 · 无数据上云
         </div>
       </div>
