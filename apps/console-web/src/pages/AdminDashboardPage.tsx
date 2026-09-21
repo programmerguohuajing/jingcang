@@ -657,15 +657,13 @@ export const AdminDashboardPage: React.FC = () => {
                         )}
                         <button
                           onClick={() => handleToggleUserStatus(u)}
-                          className="btn-secondary"
+                          className={`btn-secondary ${u.enabled ? 'btn-toggle-disable' : 'btn-toggle-enable'}`}
                           style={{
                             padding: '4px 10px',
                             fontSize: '12px',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px',
-                            color: u.enabled ? '#f87171' : '#34d399',
-                            borderColor: u.enabled ? '#7f1d1d' : '#065f46'
+                            gap: '4px'
                           }}
                         >
                           {u.enabled ? <Lock size={13} /> : <Unlock size={13} />}
@@ -830,15 +828,13 @@ export const AdminDashboardPage: React.FC = () => {
                               </button>
                               <button
                                 onClick={() => handleOpenReviewModal(item, 'REJECT')}
-                                className="btn-secondary"
+                                className="btn-secondary btn-toggle-disable"
                                 style={{
                                   padding: '4px 10px',
                                   fontSize: '12px',
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: '4px',
-                                  color: '#f87171',
-                                  borderColor: '#7f1d1d'
+                                  gap: '4px'
                                 }}
                               >
                                 <X size={13} /> 驳回

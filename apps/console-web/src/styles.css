@@ -22,6 +22,16 @@
   --table-row-hover: #f1f5f9;
   --code-bg: #f1f5f9;
   --code-text: #0369a1;
+
+  --btn-disable-text: #dc2626;
+  --btn-disable-border: rgba(220, 38, 38, 0.4);
+  --btn-disable-bg: rgba(220, 38, 38, 0.05);
+  --btn-disable-hover: rgba(220, 38, 38, 0.12);
+
+  --btn-enable-text: #16a34a;
+  --btn-enable-border: rgba(22, 163, 74, 0.4);
+  --btn-enable-bg: rgba(22, 163, 74, 0.05);
+  --btn-enable-hover: rgba(22, 163, 74, 0.12);
 }
 
 [data-theme="dark"] {
@@ -48,6 +58,16 @@
   --table-row-hover: #334155;
   --code-bg: #0f172a;
   --code-text: #38bdf8;
+
+  --btn-disable-text: #f87171;
+  --btn-disable-border: rgba(248, 113, 113, 0.4);
+  --btn-disable-bg: rgba(239, 68, 68, 0.1);
+  --btn-disable-hover: rgba(239, 68, 68, 0.2);
+
+  --btn-enable-text: #4ade80;
+  --btn-enable-border: rgba(74, 222, 128, 0.4);
+  --btn-enable-bg: rgba(34, 197, 94, 0.1);
+  --btn-enable-hover: rgba(34, 197, 94, 0.2);
 }
 
 * {
@@ -105,6 +125,26 @@ button {
 }
 .btn-danger:hover {
   background-color: #b91c1c;
+}
+
+.btn-toggle-disable {
+  color: var(--btn-disable-text) !important;
+  border-color: var(--btn-disable-border) !important;
+  background-color: var(--btn-disable-bg) !important;
+}
+.btn-toggle-disable:hover {
+  background-color: var(--btn-disable-hover) !important;
+  border-color: var(--btn-disable-text) !important;
+}
+
+.btn-toggle-enable {
+  color: var(--btn-enable-text) !important;
+  border-color: var(--btn-enable-border) !important;
+  background-color: var(--btn-enable-bg) !important;
+}
+.btn-toggle-enable:hover {
+  background-color: var(--btn-enable-hover) !important;
+  border-color: var(--btn-enable-text) !important;
 }
 
 .card {

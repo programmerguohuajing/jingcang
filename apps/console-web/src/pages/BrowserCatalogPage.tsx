@@ -528,16 +528,14 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                               setPendingBrowserToggle(b);
                             }}
                             disabled={updatingBrowserId === b.id}
-                            className="btn-secondary"
+                            className={`btn-secondary ${b.enabled ? 'btn-toggle-disable' : 'btn-toggle-enable'}`}
                             aria-label={`${b.enabled ? '禁用' : '启用'} ${b.displayName}`}
                             style={{
                               display: 'flex',
                               alignItems: 'center',
                               gap: '5px',
                               padding: '6px 10px',
-                              fontSize: '12px',
-                              color: b.enabled ? '#fca5a5' : '#6ee7b7',
-                              borderColor: b.enabled ? '#7f1d1d' : '#065f46'
+                              fontSize: '12px'
                             }}
                           >
                             {b.enabled ? <PowerOff size={14} /> : <Power size={14} />}
