@@ -419,16 +419,16 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                     }}
                   >
                     <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-                        <div>
-                          <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--text-main)', fontWeight: 600 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '12px' }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--text-main)', fontWeight: 600, wordBreak: 'break-word' }}>
                             {b.displayName || `${group.meta.name} (${b.version})`}
                           </h3>
                           <div style={{ fontSize: '12px', color: 'var(--text-subtle, #64748b)', marginTop: '2px' }}>
                             标识 ID: <code>{b.id}</code>
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0, whiteSpace: 'nowrap' }}>
                           {b.isPermitted === false && (
                             <span
                               className="badge"
@@ -436,13 +436,14 @@ export const BrowserCatalogPage: React.FC<BrowserCatalogPageProps> = ({ isAdmin 
                                 backgroundColor: 'rgba(245, 158, 11, 0.15)',
                                 color: '#fbbf24',
                                 border: '1px solid rgba(245, 158, 11, 0.3)',
-                                fontWeight: 'bold'
+                                fontWeight: 'bold',
+                                whiteSpace: 'nowrap'
                               }}
                             >
                               需申请授权
                             </span>
                           )}
-                          <span className={`badge ${b.enabled ? 'badge-ready' : 'badge-failed'}`}>
+                          <span className={`badge ${b.enabled ? 'badge-ready' : 'badge-failed'}`} style={{ whiteSpace: 'nowrap' }}>
                             {b.enabled ? '可用' : '未启用'}
                           </span>
                         </div>

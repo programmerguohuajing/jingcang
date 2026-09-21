@@ -157,7 +157,10 @@ button {
 }
 
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  flex-shrink: 0;
   padding: 2px 8px;
   border-radius: 12px;
   font-size: 12px;
