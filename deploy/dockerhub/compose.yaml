@@ -1,0 +1,210 @@
+name: jingcang-production
+
+services:
+  gateway:
+    image: nginx@sha256:62ff2089abf5a9ed33bd232895bef5e22f7bb4b200675cec49a5ebc48e3d4ac8
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        cat > /tmp/nginx.conf <<'EOF'
+        user nginx;
+        worker_processes auto;
+
+        events {
+            worker_connections 1024;
+        }
+
+        http {
+            include /etc/nginx/mime.types;
+            default_type application/octet-stream;
+            sendfile on;
+            keepalive_timeout 65;
+
+            upstream control_api_upstream {
+                server control-api:8088;
+            }
+
+            server {
+                listen 80;
+                server_name _;
+
+                location / {
+                    proxy_pass http://control_api_upstream;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $$host;
+                    proxy_set_header X-Real-IP $$remote_addr;
+                }
+
+                location /api/ {
+                    proxy_pass http://control_api_upstream/api/;
+                    proxy_http_version 1.1;
+                    proxy_set_header Host $$host;
+                    proxy_set_header X-Real-IP $$remote_addr;
+                    proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
+                }
+
+                location /viewer/ {
+                    proxy_pass http://control_api_upstream/viewer/;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade $$http_upgrade;
+                    proxy_set_header Connection "Upgrade";
+                    proxy_set_header Host $$host;
+                    proxy_set_header X-Real-IP $$remote_addr;
+                    proxy_read_timeout 3600s;
+                    proxy_send_timeout 3600s;
+                }
+
+                location /artifacts/ {
+                    proxy_pass http://control_api_upstream/artifacts/;
+                }
+            }
+        }
+        EOF
+        exec nginx -g 'daemon off;' -c /tmp/nginx.conf
+    ports:
+      - "${JINGCANG_BIND_HOST:-0.0.0.0}:${JINGCANG_PORT:-8088}:80"
+    depends_on:
+      control-api:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - frontend
+
+  control-api:
+    image: jingguohua102/jingcang:${JINGCANG_VERSION:-1.1.0}
+    restart: unless-stopped
+    environment:
+      JINGCANG_ROOT: /app
+      JINGCANG_CONTAINERIZED: "true"
+      JINGCANG_PORT: "8088"
+      JINGCANG_BIND_HOST: 0.0.0.0
+      JINGCANG_GRID_URL: http://selenium-docker:4444
+      JINGCANG_SQLITE_JOURNAL_MODE: WAL
+      JINGCANG_TRUST_PROXY: "true"
+      JINGCANG_LAN_ACCESS_ENABLED: ${JINGCANG_LAN_ACCESS_ENABLED:-true}
+      JINGCANG_BASE_URL: ${JINGCANG_BASE_URL:-http://localhost:8088}
+      JINGCANG_PUBLIC_HOSTNAME: ${JINGCANG_PUBLIC_HOSTNAME:-localhost}
+      JINGCANG_TIMEZONE: ${JINGCANG_TIMEZONE:-Asia/Shanghai}
+      JINGCANG_SESSION_DEFAULT_MINUTES: ${JINGCANG_SESSION_DEFAULT_MINUTES:-60}
+      JINGCANG_SESSION_MAX_MINUTES: ${JINGCANG_SESSION_MAX_MINUTES:-120}
+      JINGCANG_SESSION_IDLE_MINUTES: ${JINGCANG_SESSION_IDLE_MINUTES:-30}
+      JINGCANG_SESSION_MAX_CONCURRENCY: ${JINGCANG_SESSION_MAX_CONCURRENCY:-4}
+      JINGCANG_SESSION_QUEUE_LIMIT: ${JINGCANG_SESSION_QUEUE_LIMIT:-10}
+      JINGCANG_SELENIUM_SESSION_TIMEOUT: ${JINGCANG_SELENIUM_SESSION_TIMEOUT:-7200}
+      JINGCANG_ARTIFACT_RETENTION_DAYS: ${JINGCANG_ARTIFACT_RETENTION_DAYS:-7}
+      JINGCANG_ARTIFACT_MAX_TOTAL_GB: ${JINGCANG_ARTIFACT_MAX_TOTAL_GB:-50}
+      JINGCANG_VIEWER_TOKEN_TTL_SECONDS: ${JINGCANG_VIEWER_TOKEN_TTL_SECONDS:-120}
+      JINGCANG_BROWSER_COMPOSE_PROJECT: ${JINGCANG_BROWSER_COMPOSE_PROJECT:-jingcang-production}
+      JINGCANG_BROWSER_COMPOSE_NETWORK: ${JINGCANG_BROWSER_COMPOSE_NETWORK:-browser}
+      JINGCANG_SESSION_SECRET: ${JINGCANG_SESSION_SECRET:?set JINGCANG_SESSION_SECRET}
+      JINGCANG_VIEWER_SECRET: ${JINGCANG_VIEWER_SECRET:?set JINGCANG_VIEWER_SECRET}
+      JINGCANG_ADMIN_INITIAL_PASSWORD: ${JINGCANG_ADMIN_INITIAL_PASSWORD:?set JINGCANG_ADMIN_INITIAL_PASSWORD}
+    volumes:
+      - jingcang_db:/app/data/db
+      - jingcang_artifacts:/app/data/artifacts
+      - jingcang_logs:/app/data/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      selenium-docker:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8088/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 8s
+      start_period: 30s
+      retries: 5
+    networks:
+      - frontend
+      - backend
+
+  browser-preload:
+    image: jingguohua102/jingcang:browser-bundle-${JINGCANG_VERSION:-1.1.0}
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "tr -d '\\r' < /usr/local/bin/jingcang-browser-preload | /bin/sh"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  selenium-docker:
+    image: selenium/standalone-docker@sha256:9f8a98a4c66343705b54bca00156681e30608eae41e9b1228c6004c8b2dc0248
+    restart: unless-stopped
+    depends_on:
+      browser-preload:
+        condition: service_completed_successfully
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - |
+        cat > /opt/selenium/docker.toml <<'EOF'
+        [node]
+        session-timeout = 7200
+        override-max-sessions = true
+        max-sessions = 4
+
+        [docker]
+        configs = [
+          "selenium/standalone-chrome:latest", "{\"browserName\": \"chrome\"}",
+          "selenium/standalone-edge:latest", "{\"browserName\": \"MicrosoftEdge\"}",
+          "selenium/standalone-firefox:latest", "{\"browserName\": \"firefox\"}"
+        ]
+        host-config-keys = ["Dns", "DnsOptions", "DnsSearch", "ExtraHosts", "Binds"]
+        url = "http://127.0.0.1:2375"
+        EOF
+        exec /opt/bin/entry_point.sh
+    environment:
+      SE_NODE_DOCKER_CONFIG_FILENAME: docker.toml
+      SE_NODE_MAX_SESSIONS: ${JINGCANG_SESSION_MAX_CONCURRENCY:-4}
+      SE_NODE_SESSION_TIMEOUT: ${JINGCANG_SELENIUM_SESSION_TIMEOUT:-7200}
+      SE_NODE_GRID_URL: http://selenium-docker:4444
+      SE_VNC_NO_PASSWORD: "true"
+      SE_START_VNC: "true"
+    volumes:
+      - jingcang_artifacts:/opt/selenium/assets
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl -fsS http://127.0.0.1:4444/status |
+          grep -q '"ready"[[:space:]]*:[[:space:]]*true'
+      interval: 20s
+      timeout: 8s
+      start_period: 30s
+      retries: 6
+    networks:
+      - backend
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+
+volumes:
+  jingcang_db:
+    name: ${JINGCANG_DB_VOLUME:-jingcang_prod_db}
+  jingcang_artifacts:
+    name: ${JINGCANG_ARTIFACTS_VOLUME:-jingcang_prod_artifacts}
+  jingcang_logs:
+    name: ${JINGCANG_LOGS_VOLUME:-jingcang_prod_logs}

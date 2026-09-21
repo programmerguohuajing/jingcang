@@ -7,6 +7,7 @@ LABEL org.opencontainers.image.title="JingCang Browser Bundle" \
 WORKDIR /opt/jingcang
 COPY browsers.tar /opt/jingcang/browsers.tar
 COPY preload.sh /usr/local/bin/jingcang-browser-preload
-RUN chmod +x /usr/local/bin/jingcang-browser-preload
+RUN sed -i 's/\r$//' /usr/local/bin/jingcang-browser-preload \
+ && chmod +x /usr/local/bin/jingcang-browser-preload
 
 ENTRYPOINT ["/usr/local/bin/jingcang-browser-preload"]
