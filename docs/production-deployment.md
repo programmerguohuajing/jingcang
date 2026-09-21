@@ -70,7 +70,7 @@ Windows：
 编辑 `deploy/.env.production`：
 
 ```dotenv
-JINGCANG_IMAGE_TAG=1.1.0
+JINGCANG_IMAGE_TAG=1.2.0
 JINGCANG_BIND_HOST=0.0.0.0
 JINGCANG_PORT=8088
 JINGCANG_BASE_URL=https://jingcang.example.com
@@ -113,8 +113,8 @@ JINGCANG_LAN_ACCESS_ENABLED=false
 默认根据根目录 `package.json` 构建两个生产镜像：
 
 ```text
-jingcang/control-api:1.1.0
-jingcang/browser-bundle:1.1.0
+jingcang/control-api:1.2.0
+jingcang/browser-bundle:1.2.0
 ```
 
 其中 `browser-bundle` 只内置构建时本机的 Chrome Latest / Edge Latest / Firefox Latest。构建时会先校验 `deploy/browser-bundle/images.txt` 中的三个镜像都已存在，然后执行一次 `docker save`；共享 layer 只保存一次，再封装到 bundle 镜像中。首次 preload 需要解包约 1~2 GB 数据，耗时取决于生产机磁盘性能。其他历史或指定版本仍可在生产机具备互联网出站能力时，通过“新增浏览器版本”在线拉取。
@@ -124,7 +124,7 @@ jingcang/browser-bundle:1.1.0
 ```powershell
 .\scripts\build-production.ps1 `
   -ImageRepository ghcr.io/programmerguohuajing/jingcang `
-  -Tag 1.1.0 `
+  -Tag 1.2.0 `
   -TagLatest
 ```
 
@@ -139,7 +139,7 @@ Control API 镜像内会写入 OCI metadata：版本、Git revision、构建时�
 单独重建 Browser Bundle：
 
 ```powershell
-.\scripts\build-browser-bundle.ps1 -Tag 1.1.0
+.\scripts\build-browser-bundle.ps1 -Tag 1.2.0
 ```
 
 ### 6.1 手动构建
@@ -150,8 +150,8 @@ $DATE = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
 
 docker build `
   -f apps/control-api/Dockerfile.production `
-  -t jingcang/control-api:1.1.0 `
-  --build-arg VERSION=1.1.0 `
+  -t jingcang/control-api:1.2.0 `
+  --build-arg VERSION=1.2.0 `
   --build-arg VCS_REF=$REV `
   --build-arg BUILD_DATE=$DATE `
   .
@@ -184,8 +184,8 @@ docker compose `
 如果目标机器不负责构建镜像，需要同时准备 Control API 与 Browser Bundle：
 
 ```powershell
-docker pull jingcang/control-api:1.1.0
-docker pull jingcang/browser-bundle:1.1.0
+docker pull jingcang/control-api:1.2.0
+docker pull jingcang/browser-bundle:1.2.0
 docker compose --env-file deploy/.env.production -f deploy/compose.production.yaml up -d --no-build
 ```
 
@@ -305,8 +305,8 @@ jingcang/control-api:1.1.1
 
 ```powershell
 docker login ghcr.io
-docker tag jingcang/control-api:1.1.0 ghcr.io/programmerguohuajing/jingcang:1.1.0
-docker push ghcr.io/programmerguohuajing/jingcang:1.1.0
+docker tag jingcang/control-api:1.2.0 ghcr.io/programmerguohuajing/jingcang:1.2.0
+docker push ghcr.io/programmerguohuajing/jingcang:1.2.0
 ```
 
 正式环境建议使用不可变版本号或 digest，不要仅依赖 `latest`。
@@ -337,7 +337,7 @@ docker compose --env-file deploy/.env.production -f deploy/compose.production.ya
 docker compose --env-file deploy/.env.production -f deploy/compose.production.yaml ps
 docker compose --env-file deploy/.env.production -f deploy/compose.production.yaml logs --tail=200 control-api
 docker compose --env-file deploy/.env.production -f deploy/compose.production.yaml logs --tail=200 selenium-docker
-docker image inspect jingcang/control-api:1.1.0
+docker image inspect jingcang/control-api:1.2.0
 docker volume ls | findstr jingcang_prod
 ```
 

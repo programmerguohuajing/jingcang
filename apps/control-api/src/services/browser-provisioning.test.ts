@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectSeleniumTag } from './browser-provisioning.service.js';
+import { buildSeleniumRepository, selectSeleniumTag } from './browser-provisioning.service.js';
+
+test('buildSeleniumRepository supports a custom registry namespace', () => {
+  assert.equal(
+    buildSeleniumRepository('chrome', 'registry.example.com/team/selenium'),
+    'registry.example.com/team/selenium/standalone-chrome'
+  );
+  assert.equal(buildSeleniumRepository('firefox'), 'selenium/standalone-firefox');
+});
 
 test('selectSeleniumTag resolves a major browser version to the newest dated stable tag', () => {
   const tag = selectSeleniumTag('140', [

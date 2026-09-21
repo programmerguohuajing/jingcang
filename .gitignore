@@ -14,3 +14,5 @@ coverage/
 backups/
 cookies.txt
 deploy/browser-bundle/browsers.tar
+deploy/browser-images/
+deploy/dockerhub/browser-images/

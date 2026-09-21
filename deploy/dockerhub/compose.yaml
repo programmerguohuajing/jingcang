@@ -78,7 +78,7 @@ services:
       - frontend
 
   control-api:
-    image: jingguohua102/jingcang:${JINGCANG_VERSION:-1.1.0}
+    image: jingguohua102/jingcang:${JINGCANG_VERSION:-1.2.0}
     restart: unless-stopped
     environment:
       JINGCANG_ROOT: /app
@@ -103,6 +103,13 @@ services:
       JINGCANG_VIEWER_TOKEN_TTL_SECONDS: ${JINGCANG_VIEWER_TOKEN_TTL_SECONDS:-120}
       JINGCANG_BROWSER_COMPOSE_PROJECT: ${JINGCANG_BROWSER_COMPOSE_PROJECT:-jingcang-production}
       JINGCANG_BROWSER_COMPOSE_NETWORK: ${JINGCANG_BROWSER_COMPOSE_NETWORK:-browser}
+      JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX: ${JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX:-selenium}
+      JINGCANG_BROWSER_REGISTRY_SERVER: "${JINGCANG_BROWSER_REGISTRY_SERVER:-}"
+      JINGCANG_BROWSER_REGISTRY_USERNAME: "${JINGCANG_BROWSER_REGISTRY_USERNAME:-}"
+      JINGCANG_BROWSER_REGISTRY_PASSWORD: "${JINGCANG_BROWSER_REGISTRY_PASSWORD:-}"
+      JINGCANG_BROWSER_IMAGE_ARCHIVE_DIR: /app/browser-images
+      JINGCANG_BROWSER_OFFLINE_MODE: ${JINGCANG_BROWSER_OFFLINE_MODE:-false}
+      JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS: ${JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS:-30}
       JINGCANG_SESSION_SECRET: ${JINGCANG_SESSION_SECRET:?set JINGCANG_SESSION_SECRET}
       JINGCANG_VIEWER_SECRET: ${JINGCANG_VIEWER_SECRET:?set JINGCANG_VIEWER_SECRET}
       JINGCANG_ADMIN_INITIAL_PASSWORD: ${JINGCANG_ADMIN_INITIAL_PASSWORD:?set JINGCANG_ADMIN_INITIAL_PASSWORD}
@@ -110,6 +117,7 @@ services:
       - jingcang_db:/app/data/db
       - jingcang_artifacts:/app/data/artifacts
       - jingcang_logs:/app/data/logs
+      - ./browser-images:/app/browser-images:ro
       - /var/run/docker.sock:/var/run/docker.sock
     read_only: true
     tmpfs:
@@ -134,7 +142,7 @@ services:
       - backend
 
   browser-preload:
-    image: jingguohua102/jingcang:browser-bundle-${JINGCANG_VERSION:-1.1.0}
+    image: jingguohua102/jingcang:browser-bundle-${JINGCANG_VERSION:-1.2.0}
     restart: "no"
     entrypoint: ["/bin/sh", "-c"]
     command:
@@ -164,9 +172,9 @@ services:
 
         [docker]
         configs = [
-          "selenium/standalone-chrome:latest", "{\"browserName\": \"chrome\"}",
-          "selenium/standalone-edge:latest", "{\"browserName\": \"MicrosoftEdge\"}",
-          "selenium/standalone-firefox:latest", "{\"browserName\": \"firefox\"}"
+          "${JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX:-selenium}/standalone-chrome:latest", "{\"browserName\": \"chrome\"}",
+          "${JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX:-selenium}/standalone-edge:latest", "{\"browserName\": \"MicrosoftEdge\"}",
+          "${JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX:-selenium}/standalone-firefox:latest", "{\"browserName\": \"firefox\"}"
         ]
         host-config-keys = ["Dns", "DnsOptions", "DnsSearch", "ExtraHosts", "Binds"]
         url = "http://127.0.0.1:2375"

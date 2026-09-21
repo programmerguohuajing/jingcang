@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import http from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -36,6 +37,7 @@ export class DockerEngineService {
   private readonly socketPath: string;
   private readonly browserComposeProject: string;
   private readonly browserComposeNetwork: string;
+  private readonly loadedArchives = new Map<string, string>();
   private apiVersion: string | null = null;
 
   constructor(private config: Config) {
@@ -46,16 +48,78 @@ export class DockerEngineService {
       process.env.JINGCANG_BROWSER_COMPOSE_NETWORK?.trim() || 'jingcang_poc';
   }
 
+  public async listImageTags(repository: string): Promise<string[]> {
+    const normalizedRepository = repository.trim();
+    if (!normalizedRepository) return [];
+
+    let repoTags: string[] = [];
+    if (this.canUseSocket()) {
+      const response = await this.requestDocker('GET', '/images/json?all=0');
+      const images = JSON.parse(response.body) as Array<{ RepoTags?: string[] | null }>;
+      repoTags = images.flatMap((image) => image.RepoTags || []);
+    } else {
+      const { stdout } = await this.runDockerCli(
+        ['images', '--format', '{{.Repository}}:{{.Tag}}'],
+        30_000
+      );
+      repoTags = stdout.split(/\r?\n/).filter(Boolean);
+    }
+
+    const prefix = `${normalizedRepository}:`;
+    return Array.from(new Set(
+      repoTags
+        .filter((tag) => tag.startsWith(prefix))
+        .map((tag) => tag.slice(prefix.length))
+        .filter((tag) => tag && tag !== '<none>')
+    )).sort();
+  }
+
+  public async loadImageArchives(directory: string): Promise<string[]> {
+    const normalizedDirectory = directory.trim();
+    if (!normalizedDirectory || !fs.existsSync(normalizedDirectory)) return [];
+    if (!fs.statSync(normalizedDirectory).isDirectory()) return [];
+
+    const archives = fs.readdirSync(normalizedDirectory)
+      .filter((name) => /\.(?:tar|tar\.gz|tgz)$/i.test(name))
+      .sort();
+    const loaded: string[] = [];
+
+    for (const name of archives) {
+      const archivePath = path.join(normalizedDirectory, name);
+      const stat = fs.statSync(archivePath);
+      if (!stat.isFile()) continue;
+      const signature = `${stat.size}:${stat.mtimeMs}`;
+      if (this.loadedArchives.get(archivePath) === signature) continue;
+
+      await this.loadImageArchive(archivePath);
+      this.loadedArchives.set(archivePath, signature);
+      loaded.push(name);
+    }
+
+    return loaded;
+  }
+
+  private async loadImageArchive(filePath: string): Promise<void> {
+    if (this.canUseSocket()) {
+      await this.requestDockerFile('/images/load?quiet=1', filePath);
+      return;
+    }
+
+    await this.runDockerCli(['load', '-i', filePath], 30 * 60 * 1000);
+  }
+
   public async pullImage(image: string): Promise<void> {
     if (await this.imageExists(image)) return;
 
     if (this.canUseSocket()) {
       const [repository, tag] = this.splitImage(image);
+      const registryAuth = this.getRegistryAuthHeader();
       await this.requestDocker(
         'POST',
         `/images/create?fromImage=${encodeURIComponent(repository)}&tag=${encodeURIComponent(tag)}&platform=linux%2Famd64`,
         undefined,
-        true
+        true,
+        registryAuth ? { 'X-Registry-Auth': registryAuth } : undefined
       );
       return;
     }
@@ -217,6 +281,20 @@ export class DockerEngineService {
     }
   }
 
+  private getRegistryAuthHeader(): string | undefined {
+    const username = process.env.JINGCANG_BROWSER_REGISTRY_USERNAME?.trim() || '';
+    const password = process.env.JINGCANG_BROWSER_REGISTRY_PASSWORD || '';
+    const serveraddress = process.env.JINGCANG_BROWSER_REGISTRY_SERVER?.trim() || '';
+    if (!username && !password) return undefined;
+    if (!username || !password) {
+      throw new Error('浏览器镜像仓库认证需要同时配置用户名和密码');
+    }
+
+    const authConfig: Record<string, string> = { username, password };
+    if (serveraddress) authConfig.serveraddress = serveraddress;
+    return Buffer.from(JSON.stringify(authConfig), 'utf8').toString('base64url');
+  }
+
   private splitImage(image: string): [string, string] {
     const separator = image.lastIndexOf(':');
     if (separator <= image.lastIndexOf('/')) return [image, 'latest'];
@@ -299,14 +377,16 @@ export class DockerEngineService {
     method: string,
     requestPath: string,
     body?: unknown,
-    streamResponse = false
+    streamResponse = false,
+    headers?: Record<string, string>
   ): Promise<DockerResponse> {
     const apiVersion = await this.getApiVersion();
     return this.requestDockerRaw(
       method,
       `/v${apiVersion}${requestPath}`,
       body,
-      streamResponse
+      streamResponse,
+      headers
     );
   }
 
@@ -326,22 +406,83 @@ export class DockerEngineService {
     }
   }
 
+  private async requestDockerFile(requestPath: string, filePath: string): Promise<void> {
+    const apiVersion = await this.getApiVersion();
+    const stat = fs.statSync(filePath);
+
+    await new Promise<void>((resolve, reject) => {
+      const request = http.request({
+        socketPath: this.socketPath,
+        path: `/v${apiVersion}${requestPath}`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-tar',
+          'Content-Length': stat.size
+        }
+      }, (response) => {
+        let responseBody = '';
+        let streamBuffer = '';
+        let streamError = '';
+
+        response.on('data', (chunk: Buffer) => {
+          const text = chunk.toString('utf8');
+          responseBody += text;
+          streamBuffer += text;
+          let newline = streamBuffer.indexOf('\n');
+          while (newline >= 0) {
+            const line = streamBuffer.slice(0, newline);
+            streamBuffer = streamBuffer.slice(newline + 1);
+            this.captureStreamError(line, (message) => { streamError = message; });
+            newline = streamBuffer.indexOf('\n');
+          }
+        });
+
+        response.on('end', () => {
+          if (streamBuffer.trim()) {
+            this.captureStreamError(streamBuffer, (message) => { streamError = message; });
+          }
+          const statusCode = response.statusCode || 500;
+          if (statusCode < 200 || statusCode >= 300 || streamError) {
+            reject(new Error(
+              streamError || this.extractDockerError(responseBody) ||
+              `Docker API 返回 HTTP ${statusCode}`
+            ));
+            return;
+          }
+          resolve();
+        });
+      });
+
+      request.setTimeout(30 * 60 * 1000, () => {
+        request.destroy(new Error('Docker 镜像导入超时'));
+      });
+      request.on('error', reject);
+
+      const stream = fs.createReadStream(filePath);
+      stream.on('error', (error) => request.destroy(error));
+      stream.pipe(request);
+    });
+  }
+
   private requestDockerRaw(
     method: string,
     requestPath: string,
     body?: unknown,
-    streamResponse = false
+    streamResponse = false,
+    headers?: Record<string, string>
   ): Promise<DockerResponse> {
     return new Promise((resolve, reject) => {
       const payload = body === undefined ? undefined : JSON.stringify(body);
+      const requestHeaders: Record<string, string | number> = { ...(headers || {}) };
+      if (payload) {
+        requestHeaders['Content-Type'] = 'application/json';
+        requestHeaders['Content-Length'] = Buffer.byteLength(payload);
+      }
       const request = http.request({
         socketPath: this.socketPath,
         path: requestPath,
         method,
-        headers: payload ? {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload)
-        } : undefined
+        headers: Object.keys(requestHeaders).length > 0 ? requestHeaders : undefined
       }, (response) => {
         const chunks: Buffer[] = [];
         let streamError = '';

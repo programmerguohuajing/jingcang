@@ -18,6 +18,16 @@ const IMAGE_REPOSITORIES: Record<BrowserVendor, string> = {
   chromium: 'selenium/standalone-chromium'
 };
 
+export function buildSeleniumRepository(
+  browserName: BrowserVendor,
+  repositoryPrefix = 'selenium'
+): string {
+  const officialRepository = IMAGE_REPOSITORIES[browserName];
+  const imageName = officialRepository.slice(officialRepository.lastIndexOf('/') + 1);
+  const prefix = repositoryPrefix.trim().replace(/\/+$/, '') || 'selenium';
+  return `${prefix}/${imageName}`;
+}
+
 const DISPLAY_NAMES: Record<BrowserVendor, string> = {
   chrome: 'Google Chrome',
   edge: 'Microsoft Edge',
@@ -55,24 +65,52 @@ export function selectSeleniumTag(requestedVersion: string, tags: string[]): str
 
 export class BrowserProvisioningService {
   private docker: DockerEngineService;
+  private readonly imageRepositoryPrefix: string;
+  private readonly imageArchiveDir: string;
+  private readonly offlineMode: boolean;
+  private archiveImportPromise: Promise<string[]> | null = null;
 
   constructor(
     private config: Config,
     private catalogService: CatalogService
   ) {
     this.docker = new DockerEngineService(config);
-    setImmediate(() => {
-      this.recoverInterruptedJobs().catch((error) => {
+    this.imageRepositoryPrefix =
+      process.env.JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX?.trim() || 'selenium';
+    this.imageArchiveDir = process.env.JINGCANG_BROWSER_IMAGE_ARCHIVE_DIR?.trim() || '';
+    this.offlineMode = /^(?:1|true|yes|on)$/i.test(
+      process.env.JINGCANG_BROWSER_OFFLINE_MODE?.trim() || 'false'
+    );
+
+    setImmediate(async () => {
+      try {
+        await this.importOfflineBrowserArchives();
+      } catch (error) {
+        console.error('[BrowserProvisioning] Failed to import offline browser images:', error);
+      }
+      try {
+        await this.recoverInterruptedJobs();
+      } catch (error) {
         console.error('[BrowserProvisioning] Failed to recover interrupted jobs:', error);
-      });
+      }
     });
+
+    const scanSeconds = Number(process.env.JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS || '30');
+    if (this.imageArchiveDir && Number.isFinite(scanSeconds) && scanSeconds > 0) {
+      const timer = setInterval(() => {
+        this.importOfflineBrowserArchives().catch((error) => {
+          console.error('[BrowserProvisioning] Offline browser image scan failed:', error);
+        });
+      }, Math.max(5, scanSeconds) * 1000);
+      timer.unref();
+    }
   }
 
   public createInstallJob(userId: string, input: BrowserInstallRequest): BrowserInstallJob {
     const db = getDb(this.config);
     const existingBrowser = this.catalogService.getBrowserByVendorVersion(input.browserName, input.version);
     const now = new Date().toISOString();
-    const image = `${IMAGE_REPOSITORIES[input.browserName]}:${input.version}`;
+    const image = `${this.getImageRepository(input.browserName)}:${input.version}`;
 
     if (existingBrowser?.enabled) {
       const jobId = `install-${crypto.randomUUID()}`;
@@ -124,7 +162,7 @@ export class BrowserProvisioningService {
       input.browserName,
       input.version,
       image,
-      '安装任务已创建，正在等待镜像下载',
+      '安装任务已创建，正在等待浏览器镜像准备',
       now,
       now
     );
@@ -159,10 +197,10 @@ export class BrowserProvisioningService {
 
     let containerId: string | null = null;
     try {
-      this.updateJob(jobId, 'PULLING', `正在解析 ${job.browserName} ${job.version} 对应的官方 Selenium 镜像`);
+      this.updateJob(jobId, 'PULLING', `正在解析 ${job.browserName} ${job.version} 对应的浏览器镜像`);
       const resolvedImage = await this.resolveSeleniumImage(job.browserName, job.version);
       this.setJobImage(jobId, resolvedImage);
-      this.updateJob(jobId, 'PULLING', `正在下载官方镜像 ${resolvedImage}`);
+      this.updateJob(jobId, 'PULLING', `正在确保镜像 ${resolvedImage} 可用`);
       await this.docker.pullImage(resolvedImage);
 
       const existingBrowser = this.catalogService.getBrowserByVendorVersion(job.browserName, job.version);
@@ -172,7 +210,7 @@ export class BrowserProvisioningService {
         .replace(/-+/g, '-')
         .replace(/-$/g, '')
         .slice(0, 63);
-      this.updateJob(jobId, 'STARTING', '镜像下载完成，正在启动并检查浏览器节点');
+      this.updateJob(jobId, 'STARTING', '镜像准备完成，正在启动并检查浏览器节点');
       const started = await this.docker.startStandaloneBrowser(resolvedImage, containerName, browserId);
       containerId = started.containerId;
       this.setContainerId(jobId, containerId);
@@ -201,20 +239,79 @@ export class BrowserProvisioningService {
     }
   }
 
+  private getImageRepository(browserName: BrowserVendor): string {
+    return buildSeleniumRepository(browserName, this.imageRepositoryPrefix);
+  }
+
+  private async importOfflineBrowserArchives(): Promise<string[]> {
+    if (!this.imageArchiveDir) return [];
+    if (this.archiveImportPromise) return this.archiveImportPromise;
+
+    this.archiveImportPromise = this.docker.loadImageArchives(this.imageArchiveDir)
+      .then((archives) => {
+        if (archives.length > 0) {
+          console.info(
+            `[BrowserProvisioning] Imported offline browser image archives: ${archives.join(', ')}`
+          );
+        }
+        return archives;
+      })
+      .finally(() => {
+        this.archiveImportPromise = null;
+      });
+
+    return this.archiveImportPromise;
+  }
+
+  private async findLocalSeleniumImage(
+    browserName: BrowserVendor,
+    requestedVersion: string
+  ): Promise<string | null> {
+    const repositories = Array.from(new Set([
+      this.getImageRepository(browserName),
+      IMAGE_REPOSITORIES[browserName]
+    ]));
+
+    for (const repository of repositories) {
+      const tags = await this.docker.listImageTags(repository);
+      const selectedTag = selectSeleniumTag(requestedVersion, tags);
+      if (selectedTag) return `${repository}:${selectedTag}`;
+    }
+
+    return null;
+  }
+
   private async resolveSeleniumImage(
     browserName: BrowserVendor,
     requestedVersion: string
   ): Promise<string> {
-    const repository = IMAGE_REPOSITORIES[browserName];
+    await this.importOfflineBrowserArchives();
+
     const requested = requestedVersion.trim();
+    const localImage = await this.findLocalSeleniumImage(browserName, requested);
+    if (localImage) return localImage;
+
+    const repository = this.getImageRepository(browserName);
+    const officialRepository = IMAGE_REPOSITORIES[browserName];
     const channel = requested.toLowerCase();
+    const lookupVersion = /^\d+$/.test(requested) ? `${requested}.0` : requested;
+
+    if (this.offlineMode) {
+      throw new Error(
+        `离线模式下未找到 ${DISPLAY_NAMES[browserName]} ${requested} 的本地镜像。` +
+        `请把 docker save 生成的镜像包上传到 ${this.imageArchiveDir || 'JINGCANG_BROWSER_IMAGE_ARCHIVE_DIR'} 后重试`
+      );
+    }
 
     if (['latest', 'beta', 'dev', 'nightly'].includes(channel)) {
       return `${repository}:${channel}`;
     }
 
-    const lookupVersion = /^\d+$/.test(requested) ? `${requested}.0` : requested;
-    const endpoint = new URL(`https://hub.docker.com/v2/repositories/${repository}/tags`);
+    if (repository !== officialRepository) {
+      return `${repository}:${lookupVersion}`;
+    }
+
+    const endpoint = new URL(`https://hub.docker.com/v2/repositories/${officialRepository}/tags`);
     endpoint.searchParams.set('page_size', '100');
     endpoint.searchParams.set('ordering', 'last_updated');
     endpoint.searchParams.set('name', lookupVersion);
@@ -341,7 +438,7 @@ export class BrowserProvisioningService {
   private toUserError(error: any): string {
     const raw = String(error?.message || error || '未知错误');
     if (/manifest unknown|not found|pull access denied/i.test(raw)) {
-      return '未找到该厂商与版本对应的官方 Selenium 镜像，请检查版本号后重试';
+      return '未找到该厂商与版本对应的浏览器镜像，请检查版本号或镜像仓库配置后重试';
     }
     if (/ENOENT|not recognized|Docker 命令执行失败/i.test(raw)) {
       return '无法连接 Docker Engine，请确认 Docker 已启动且控制服务拥有 Docker Socket 权限';

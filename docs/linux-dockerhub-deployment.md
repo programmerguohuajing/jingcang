@@ -65,13 +65,16 @@ SERVER_IP=$(hostname -I | awk '{print $1}')
 ADMIN_PASSWORD=$(openssl rand -base64 24 | tr -d '\n')
 
 cat > .env <<EOF
-JINGCANG_VERSION=1.1.0
+JINGCANG_VERSION=1.2.0
 JINGCANG_BIND_HOST=0.0.0.0
 JINGCANG_PORT=8088
 JINGCANG_LAN_ACCESS_ENABLED=true
 JINGCANG_BASE_URL=http://${SERVER_IP}:8088
 JINGCANG_PUBLIC_HOSTNAME=${SERVER_IP}
 JINGCANG_TIMEZONE=Asia/Shanghai
+JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX=selenium
+JINGCANG_BROWSER_OFFLINE_MODE=false
+JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS=30
 JINGCANG_SESSION_SECRET=$(openssl rand -hex 32)
 JINGCANG_VIEWER_SECRET=$(openssl rand -hex 32)
 JINGCANG_ADMIN_INITIAL_PASSWORD=${ADMIN_PASSWORD}
@@ -111,8 +114,8 @@ docker compose pull
 Compose 会自动拉取：
 
 ```text
-jingguohua102/jingcang:1.1.0
-jingguohua102/jingcang:browser-bundle-1.1.0
+jingguohua102/jingcang:1.2.0
+jingguohua102/jingcang:browser-bundle-1.2.0
 Nginx
 Selenium Dynamic Grid
 ```
@@ -136,6 +139,77 @@ docker compose up -d
 - Firefox Latest
 
 首次导入浏览器镜像时可能需要一些时间。
+
+### 6.1 使用自定义/国内浏览器镜像仓库
+
+浏览器镜像仓库前缀可以通过 `.env` 配置。例如内部 Registry 中的镜像路径为：
+
+```text
+registry.example.com/team/selenium/standalone-chrome:140.0
+registry.example.com/team/selenium/standalone-edge:140.0
+registry.example.com/team/selenium/standalone-firefox:140.0
+```
+
+则配置：
+
+```dotenv
+JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX=registry.example.com/team/selenium
+JINGCANG_BROWSER_OFFLINE_MODE=false
+```
+
+如 Registry 需要认证，可继续配置：
+
+```dotenv
+JINGCANG_BROWSER_REGISTRY_SERVER=registry.example.com
+JINGCANG_BROWSER_REGISTRY_USERNAME=your-user
+JINGCANG_BROWSER_REGISTRY_PASSWORD=your-password
+```
+
+配置自定义仓库后，JingCang 不再通过 Docker Hub Tag API 解析数字版本，而是直接使用配置仓库中的对应 tag。
+
+### 6.2 完全离线导入不同浏览器版本
+
+服务器不能访问公网时，推荐：
+
+```dotenv
+JINGCANG_BROWSER_OFFLINE_MODE=true
+JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS=30
+```
+
+服务器创建目录：
+
+```bash
+mkdir -p /opt/jingcang/browser-images
+```
+
+在可联网机器上拉取并导出需要的浏览器镜像，例如：
+
+```bash
+docker pull selenium/standalone-chrome:140.0-20260909
+docker save -o chrome-140.tar selenium/standalone-chrome:140.0-20260909
+```
+
+把 tar 上传到服务器。为了避免扫描到尚未传输完成的文件，建议先使用 `.part` 后缀：
+
+```bash
+scp chrome-140.tar root@SERVER:/opt/jingcang/browser-images/chrome-140.tar.part
+ssh root@SERVER 'mv /opt/jingcang/browser-images/chrome-140.tar.part /opt/jingcang/browser-images/chrome-140.tar'
+```
+
+Control API 会定时扫描 `/opt/jingcang/browser-images`，识别 `.tar`、`.tar.gz`、`.tgz`，并通过 Docker Socket 自动执行镜像导入。无需手工运行 `docker load`，也无需重启 JingCang。
+
+确认镜像已加载：
+
+```bash
+docker images | grep 'standalone-'
+docker compose logs --tail=100 control-api
+```
+
+之后在 JingCang 的“添加浏览器版本”中输入对应厂商和版本。JingCang 会优先匹配本机已加载的镜像；离线模式下不会查询 Docker Hub，也不会尝试公网拉取。若本地没有匹配镜像，会直接提示需要上传离线镜像包。
+
+离线 tar 中的镜像 tag 应保留为 `selenium/standalone-*`，或者与 `JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX` 配置的仓库前缀一致。
+
+> 此目录用于新增浏览器版本镜像。JingCang 主程序、Nginx、Selenium Dynamic Grid 等基础部署镜像仍需通过在线拉取或完整离线部署包提前导入。
 
 ## 7. 查看状态
 

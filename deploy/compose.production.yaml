@@ -22,12 +22,12 @@ services:
       - frontend
 
   control-api:
-    image: jingcang/control-api:${JINGCANG_IMAGE_TAG:-1.1.0}
+    image: jingcang/control-api:${JINGCANG_IMAGE_TAG:-1.2.0}
     build:
       context: ..
       dockerfile: apps/control-api/Dockerfile.production
       args:
-        VERSION: ${JINGCANG_IMAGE_TAG:-1.1.0}
+        VERSION: ${JINGCANG_IMAGE_TAG:-1.2.0}
         VCS_REF: ${JINGCANG_VCS_REF:-unknown}
         BUILD_DATE: ${JINGCANG_BUILD_DATE:-unknown}
     restart: unless-stopped
@@ -44,10 +44,18 @@ services:
       JINGCANG_LAN_ACCESS_ENABLED: ${JINGCANG_LAN_ACCESS_ENABLED:-true}
       JINGCANG_BROWSER_COMPOSE_PROJECT: ${JINGCANG_BROWSER_COMPOSE_PROJECT:-jingcang-poc}
       JINGCANG_BROWSER_COMPOSE_NETWORK: ${JINGCANG_BROWSER_COMPOSE_NETWORK:-jingcang_poc}
+      JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX: ${JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX:-selenium}
+      JINGCANG_BROWSER_REGISTRY_SERVER: "${JINGCANG_BROWSER_REGISTRY_SERVER:-}"
+      JINGCANG_BROWSER_REGISTRY_USERNAME: "${JINGCANG_BROWSER_REGISTRY_USERNAME:-}"
+      JINGCANG_BROWSER_REGISTRY_PASSWORD: "${JINGCANG_BROWSER_REGISTRY_PASSWORD:-}"
+      JINGCANG_BROWSER_IMAGE_ARCHIVE_DIR: /app/browser-images
+      JINGCANG_BROWSER_OFFLINE_MODE: ${JINGCANG_BROWSER_OFFLINE_MODE:-false}
+      JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS: ${JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS:-30}
     volumes:
       - jingcang_db:/app/data/db
       - jingcang_artifacts:/app/data/artifacts
       - jingcang_logs:/app/data/logs
+      - ./browser-images:/app/browser-images:ro
       - /var/run/docker.sock:/var/run/docker.sock
     read_only: true
     tmpfs:
@@ -72,7 +80,7 @@ services:
       - backend
 
   browser-preload:
-    image: jingcang/browser-bundle:${JINGCANG_BROWSER_BUNDLE_TAG:-1.1.0}
+    image: jingcang/browser-bundle:${JINGCANG_BROWSER_BUNDLE_TAG:-1.2.0}
     restart: "no"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
