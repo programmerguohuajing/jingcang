@@ -2,6 +2,7 @@ node_modules/
 dist/
 build/
 .env
+deploy/.env.production
 data/db/*.sqlite*
 data/artifacts/*
 !data/artifacts/.gitkeep
@@ -12,3 +13,4 @@ data/logs/*
 coverage/
 backups/
 cookies.txt
+deploy/browser-bundle/browsers.tar

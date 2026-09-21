@@ -1,0 +1,36 @@
+browsers:
+  - id: chrome-stable
+    name: chrome
+    browserName: chrome
+    displayName: Google Chrome (Bundled Latest)
+    version: "latest"
+    channel: stable
+    image: selenium/standalone-chrome:latest
+    platform: linux-amd64
+    enabled: true
+    isDefault: true
+    resourceJson: { cpus: 2, memory: 3g, shmSize: 2g }
+
+  - id: edge-stable
+    name: edge
+    browserName: edge
+    displayName: Microsoft Edge (Bundled Latest)
+    version: "latest"
+    channel: stable
+    image: selenium/standalone-edge:latest
+    platform: linux-amd64
+    enabled: true
+    isDefault: true
+    resourceJson: { cpus: 2, memory: 3g, shmSize: 2g }
+
+  - id: firefox-stable
+    name: firefox
+    browserName: firefox
+    displayName: Mozilla Firefox (Bundled Latest)
+    version: "latest"
+    channel: stable
+    image: selenium/standalone-firefox:latest
+    platform: linux-amd64
+    enabled: true
+    isDefault: true
+    resourceJson: { cpus: 2, memory: 3g, shmSize: 2g }

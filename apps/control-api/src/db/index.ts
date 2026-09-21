@@ -73,12 +73,15 @@ function initSchema(db: DatabaseSync) {
       version TEXT NOT NULL,
       channel TEXT NOT NULL DEFAULT 'stable',
       image TEXT NOT NULL,
+      grid_url TEXT,
       platform TEXT NOT NULL DEFAULT 'linux-amd64',
       enabled INTEGER NOT NULL DEFAULT 1,
       enabled_override INTEGER,
       is_default INTEGER NOT NULL DEFAULT 0,
       capabilities_json TEXT,
-      resource_json TEXT
+      resource_json TEXT,
+      source TEXT NOT NULL DEFAULT 'builtin',
+      container_id TEXT
     );
 
     CREATE TABLE IF NOT EXISTS browser_install_jobs (
@@ -109,6 +112,8 @@ function initSchema(db: DatabaseSync) {
       resolved_capabilities_json TEXT,
       node_id TEXT,
       container_id TEXT,
+      grid_url TEXT,
+      resolved_browser_version TEXT,
       created_at TEXT NOT NULL,
       started_at TEXT,
       last_activity_at TEXT,
@@ -154,6 +159,12 @@ function initSchema(db: DatabaseSync) {
   const sessionColumns = db.prepare('PRAGMA table_info(sessions)').all() as Array<{ name: string }>;
   if (!sessionColumns.some((column) => column.name === 'last_activity_at')) {
     db.exec('ALTER TABLE sessions ADD COLUMN last_activity_at TEXT;');
+  }
+  if (!sessionColumns.some((column) => column.name === 'grid_url')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN grid_url TEXT;');
+  }
+  if (!sessionColumns.some((column) => column.name === 'resolved_browser_version')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN resolved_browser_version TEXT;');
   }
 
   const catalogColumns = db.prepare('PRAGMA table_info(browser_catalog)').all() as Array<{ name: string }>;

@@ -1,0 +1,13 @@
+[node]
+session-timeout = 7200
+override-max-sessions = true
+max-sessions = 4
+
+[docker]
+configs = [
+  "selenium/standalone-chrome:latest", "{\"browserName\": \"chrome\"}",
+  "selenium/standalone-edge:latest", "{\"browserName\": \"MicrosoftEdge\"}",
+  "selenium/standalone-firefox:latest", "{\"browserName\": \"firefox\"}"
+]
+host-config-keys = ["Dns", "DnsOptions", "DnsSearch", "ExtraHosts", "Binds"]
+url = "http://127.0.0.1:2375"

@@ -1,5 +1,7 @@
 # 镜舱（JingCang）部署指南
 
+> 正式生产环境请使用独立的多阶段生产镜像与生产 Compose，详见 `docs/production-deployment.md`。
+
 ## 1. 前置条件
 
 - Windows 11 + Docker Desktop / WSL2，或能够运行 Docker Compose 的等效环境。

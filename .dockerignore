@@ -8,3 +8,4 @@ data/artifacts
 data/logs
 *.log
 coverage
+deploy/browser-bundle/browsers.tar

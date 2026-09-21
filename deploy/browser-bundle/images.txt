@@ -1,0 +1,3 @@
+selenium/standalone-chrome:latest
+selenium/standalone-edge:latest
+selenium/standalone-firefox:latest
