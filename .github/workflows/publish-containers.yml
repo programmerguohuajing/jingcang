@@ -59,16 +59,33 @@ jobs:
           docker pull selenium/standalone-chrome:latest
           docker pull selenium/standalone-edge:latest
           docker pull selenium/standalone-firefox:latest
-          docker save -o deploy/browser-bundle/browsers.tar \
+          mkdir -p /tmp/jingcang-browser-bundle
+          docker save \
             selenium/standalone-chrome:latest \
             selenium/standalone-edge:latest \
-            selenium/standalone-firefox:latest
+            selenium/standalone-firefox:latest \
+            | split -b 128m -d -a 3 - /tmp/jingcang-browser-bundle/browsers.tar.part-
+          cat > /tmp/jingcang-browser-bundle/preload.sh <<'EOF'
+          #!/bin/sh
+          set -eu
+          echo "[JingCang] Loading bundled Selenium browser images into Docker Engine..."
+          cat /opt/jingcang/browsers.tar.part-* | docker load
+          echo "[JingCang] Browser image preload completed."
+          EOF
+          cat > /tmp/jingcang-browser-bundle/Dockerfile <<'EOF'
+          FROM docker:29-cli
+          WORKDIR /opt/jingcang
+          COPY browsers.tar.part-* /opt/jingcang/
+          COPY preload.sh /usr/local/bin/jingcang-browser-preload
+          RUN chmod +x /usr/local/bin/jingcang-browser-preload
+          ENTRYPOINT ["/usr/local/bin/jingcang-browser-preload"]
+          EOF
 
       - name: Build and push Browser Bundle
         uses: docker/build-push-action@v6
         with:
-          context: deploy/browser-bundle
-          file: deploy/browser-bundle/Dockerfile
+          context: /tmp/jingcang-browser-bundle
+          file: /tmp/jingcang-browser-bundle/Dockerfile
           platforms: linux/amd64
           push: true
           provenance: false
