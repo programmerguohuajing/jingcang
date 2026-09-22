@@ -22,12 +22,12 @@ services:
       - frontend
 
   control-api:
-    image: jingcang/control-api:${JINGCANG_IMAGE_TAG:-1.2.0}
+    image: jingcang/control-api:${JINGCANG_IMAGE_TAG:-1.2.1}
     build:
       context: ..
       dockerfile: apps/control-api/Dockerfile.production
       args:
-        VERSION: ${JINGCANG_IMAGE_TAG:-1.2.0}
+        VERSION: ${JINGCANG_IMAGE_TAG:-1.2.1}
         VCS_REF: ${JINGCANG_VCS_REF:-unknown}
         BUILD_DATE: ${JINGCANG_BUILD_DATE:-unknown}
     restart: unless-stopped
@@ -50,6 +50,7 @@ services:
       JINGCANG_BROWSER_REGISTRY_PASSWORD: "${JINGCANG_BROWSER_REGISTRY_PASSWORD:-}"
       JINGCANG_BROWSER_IMAGE_ARCHIVE_DIR: /app/browser-images
       JINGCANG_BROWSER_OFFLINE_MODE: ${JINGCANG_BROWSER_OFFLINE_MODE:-false}
+      JINGCANG_BROWSER_AUTO_SYNC_LOCAL_IMAGES: "${JINGCANG_BROWSER_AUTO_SYNC_LOCAL_IMAGES:-}"
       JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS: ${JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS:-30}
     volumes:
       - jingcang_db:/app/data/db
@@ -80,7 +81,7 @@ services:
       - backend
 
   browser-preload:
-    image: jingcang/browser-bundle:${JINGCANG_BROWSER_BUNDLE_TAG:-1.2.0}
+    image: jingcang/browser-bundle:${JINGCANG_BROWSER_BUNDLE_TAG:-1.2.1}
     restart: "no"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

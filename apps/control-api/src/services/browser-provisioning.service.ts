@@ -68,7 +68,9 @@ export class BrowserProvisioningService {
   private readonly imageRepositoryPrefix: string;
   private readonly imageArchiveDir: string;
   private readonly offlineMode: boolean;
+  private readonly autoSyncLocalImages: boolean;
   private archiveImportPromise: Promise<string[]> | null = null;
+  private localImageSyncPromise: Promise<void> | null = null;
 
   constructor(
     private config: Config,
@@ -81,6 +83,10 @@ export class BrowserProvisioningService {
     this.offlineMode = /^(?:1|true|yes|on)$/i.test(
       process.env.JINGCANG_BROWSER_OFFLINE_MODE?.trim() || 'false'
     );
+    const autoSyncValue = process.env.JINGCANG_BROWSER_AUTO_SYNC_LOCAL_IMAGES?.trim();
+    this.autoSyncLocalImages = autoSyncValue
+      ? /^(?:1|true|yes|on)$/i.test(autoSyncValue)
+      : this.offlineMode;
 
     setImmediate(async () => {
       try {
@@ -93,14 +99,21 @@ export class BrowserProvisioningService {
       } catch (error) {
         console.error('[BrowserProvisioning] Failed to recover interrupted jobs:', error);
       }
+      try {
+        await this.syncLocalImagesToCatalog();
+      } catch (error) {
+        console.error('[BrowserProvisioning] Failed to sync local browser images:', error);
+      }
     });
 
     const scanSeconds = Number(process.env.JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS || '30');
     if (this.imageArchiveDir && Number.isFinite(scanSeconds) && scanSeconds > 0) {
       const timer = setInterval(() => {
-        this.importOfflineBrowserArchives().catch((error) => {
-          console.error('[BrowserProvisioning] Offline browser image scan failed:', error);
-        });
+        this.importOfflineBrowserArchives()
+          .then(() => this.syncLocalImagesToCatalog())
+          .catch((error) => {
+            console.error('[BrowserProvisioning] Offline browser image scan failed:', error);
+          });
       }, Math.max(5, scanSeconds) * 1000);
       timer.unref();
     }
@@ -261,6 +274,109 @@ export class BrowserProvisioningService {
       });
 
     return this.archiveImportPromise;
+  }
+
+  private async syncLocalImagesToCatalog(): Promise<void> {
+    if (!this.autoSyncLocalImages) return;
+    if (this.localImageSyncPromise) return this.localImageSyncPromise;
+
+    const syncPromise = this.performLocalImageSync()
+      .finally(() => {
+        this.localImageSyncPromise = null;
+      });
+    this.localImageSyncPromise = syncPromise;
+    return syncPromise;
+  }
+
+  private async performLocalImageSync(): Promise<void> {
+    const candidates: Array<{
+      browserName: BrowserVendor;
+      version: string;
+      image: string;
+    }> = [];
+    const seen = new Set<string>();
+
+    for (const browserName of Object.keys(IMAGE_REPOSITORIES) as BrowserVendor[]) {
+      const repositories = Array.from(new Set([
+        this.getImageRepository(browserName),
+        IMAGE_REPOSITORIES[browserName]
+      ]));
+
+      for (const repository of repositories) {
+        const tags = await this.docker.listImageTags(repository);
+        for (const version of tags) {
+          const key = `${browserName}:${version}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          candidates.push({
+            browserName,
+            version,
+            image: `${repository}:${version}`
+          });
+        }
+      }
+    }
+
+    candidates.sort((a, b) =>
+      a.browserName.localeCompare(b.browserName) || a.version.localeCompare(b.version)
+    );
+
+    let synced = 0;
+    for (const candidate of candidates) {
+      const existing = this.catalogService.getBrowserByVendorVersion(
+        candidate.browserName,
+        candidate.version
+      );
+      if (existing) continue;
+
+      const browserId = this.buildBrowserId(candidate.browserName, candidate.version);
+      const containerName = `jc-auto-${browserId}`
+        .replace(/-+/g, '-')
+        .replace(/-$/g, '')
+        .slice(0, 63);
+
+      let containerId: string | null = null;
+      try {
+        await this.docker.removeContainer(containerName);
+        const started = await this.docker.startStandaloneBrowser(
+          candidate.image,
+          containerName,
+          browserId
+        );
+        containerId = started.containerId;
+        await this.docker.waitUntilReady(started.gridUrl);
+
+        const item: BrowserItem = {
+          id: browserId,
+          browserName: candidate.browserName,
+          displayName: `${DISPLAY_NAMES[candidate.browserName]} (${candidate.version})`,
+          version: candidate.version,
+          channel: this.inferChannel(candidate.version),
+          image: candidate.image,
+          gridUrl: started.gridUrl,
+          platform: 'linux-amd64',
+          enabled: true,
+          isDefault: false,
+          resourceJson: { cpus: 2, memory: '3g', shmSize: '2g' }
+        };
+
+        this.catalogService.addDynamicCatalogItem(item, started.containerId);
+        synced += 1;
+        console.info(
+          `[BrowserProvisioning] Auto-synced local browser image ${candidate.image} as ${browserId}`
+        );
+      } catch (error: any) {
+        if (containerId) await this.docker.removeContainer(containerId);
+        console.error(
+          `[BrowserProvisioning] Failed to auto-sync local browser image ${candidate.image}:`,
+          error?.message || error
+        );
+      }
+    }
+
+    if (synced > 0) {
+      console.info(`[BrowserProvisioning] Auto-synced ${synced} local browser image(s) to catalog`);
+    }
   }
 
   private async findLocalSeleniumImage(

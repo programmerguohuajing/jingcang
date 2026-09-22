@@ -259,8 +259,11 @@ export class DockerEngineService {
       } else {
         await this.runDockerCli(['rm', '-f', containerId], 30_000);
       }
-    } catch (error) {
-      console.warn(`[DockerEngineService] Failed to remove container ${containerId}:`, error);
+    } catch (error: any) {
+      const message = String(error?.message || error || '');
+      if (!/no such container|not found|http 404/i.test(message)) {
+        console.warn(`[DockerEngineService] Failed to remove container ${containerId}:`, error);
+      }
     }
   }
 

@@ -78,7 +78,7 @@ services:
       - frontend
 
   control-api:
-    image: jingguohua102/jingcang:${JINGCANG_VERSION:-1.2.0}
+    image: jingguohua102/jingcang:${JINGCANG_VERSION:-1.2.1}
     restart: unless-stopped
     environment:
       JINGCANG_ROOT: /app
@@ -109,6 +109,7 @@ services:
       JINGCANG_BROWSER_REGISTRY_PASSWORD: "${JINGCANG_BROWSER_REGISTRY_PASSWORD:-}"
       JINGCANG_BROWSER_IMAGE_ARCHIVE_DIR: /app/browser-images
       JINGCANG_BROWSER_OFFLINE_MODE: ${JINGCANG_BROWSER_OFFLINE_MODE:-false}
+      JINGCANG_BROWSER_AUTO_SYNC_LOCAL_IMAGES: "${JINGCANG_BROWSER_AUTO_SYNC_LOCAL_IMAGES:-}"
       JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS: ${JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS:-30}
       JINGCANG_SESSION_SECRET: ${JINGCANG_SESSION_SECRET:?set JINGCANG_SESSION_SECRET}
       JINGCANG_VIEWER_SECRET: ${JINGCANG_VIEWER_SECRET:?set JINGCANG_VIEWER_SECRET}
@@ -142,7 +143,7 @@ services:
       - backend
 
   browser-preload:
-    image: jingguohua102/jingcang:browser-bundle-${JINGCANG_VERSION:-1.2.0}
+    image: jingguohua102/jingcang:browser-bundle-${JINGCANG_VERSION:-1.2.1}
     restart: "no"
     entrypoint: ["/bin/sh", "-c"]
     command:

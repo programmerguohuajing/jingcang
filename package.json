@@ -1,7 +1,7 @@
 {
   "name": "jingcang-root",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.2.1",
   "packageManager": "pnpm@11.1.2",
   "description": "镜舱（JingCang）——完全本地化部署的多浏览器兼容性测试平台",
   "scripts": {

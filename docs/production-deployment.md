@@ -70,13 +70,17 @@ Windows：
 编辑 `deploy/.env.production`：
 
 ```dotenv
-JINGCANG_IMAGE_TAG=1.2.0
+JINGCANG_IMAGE_TAG=1.2.1
 JINGCANG_BIND_HOST=0.0.0.0
 JINGCANG_PORT=8088
 JINGCANG_BASE_URL=https://jingcang.example.com
 JINGCANG_PUBLIC_HOSTNAME=jingcang.example.com
 JINGCANG_TIMEZONE=Asia/Shanghai
 JINGCANG_LAN_ACCESS_ENABLED=true
+JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX=selenium
+JINGCANG_BROWSER_OFFLINE_MODE=false
+JINGCANG_BROWSER_AUTO_SYNC_LOCAL_IMAGES=
+JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS=30
 ```
 
 ### 5.1 默认局域网访问
@@ -113,8 +117,8 @@ JINGCANG_LAN_ACCESS_ENABLED=false
 默认根据根目录 `package.json` 构建两个生产镜像：
 
 ```text
-jingcang/control-api:1.2.0
-jingcang/browser-bundle:1.2.0
+jingcang/control-api:1.2.1
+jingcang/browser-bundle:1.2.1
 ```
 
 其中 `browser-bundle` 只内置构建时本机的 Chrome Latest / Edge Latest / Firefox Latest。构建时会先校验 `deploy/browser-bundle/images.txt` 中的三个镜像都已存在，然后执行一次 `docker save`；共享 layer 只保存一次，再封装到 bundle 镜像中。首次 preload 需要解包约 1~2 GB 数据，耗时取决于生产机磁盘性能。其他历史或指定版本仍可在生产机具备互联网出站能力时，通过“新增浏览器版本”在线拉取。
@@ -124,7 +128,7 @@ jingcang/browser-bundle:1.2.0
 ```powershell
 .\scripts\build-production.ps1 `
   -ImageRepository ghcr.io/programmerguohuajing/jingcang `
-  -Tag 1.2.0 `
+  -Tag 1.2.1 `
   -TagLatest
 ```
 
@@ -139,7 +143,7 @@ Control API 镜像内会写入 OCI metadata：版本、Git revision、构建时�
 单独重建 Browser Bundle：
 
 ```powershell
-.\scripts\build-browser-bundle.ps1 -Tag 1.2.0
+.\scripts\build-browser-bundle.ps1 -Tag 1.2.1
 ```
 
 ### 6.1 手动构建
@@ -150,8 +154,8 @@ $DATE = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
 
 docker build `
   -f apps/control-api/Dockerfile.production `
-  -t jingcang/control-api:1.2.0 `
-  --build-arg VERSION=1.2.0 `
+  -t jingcang/control-api:1.2.1 `
+  --build-arg VERSION=1.2.1 `
   --build-arg VCS_REF=$REV `
   --build-arg BUILD_DATE=$DATE `
   .
@@ -184,12 +188,14 @@ docker compose `
 如果目标机器不负责构建镜像，需要同时准备 Control API 与 Browser Bundle：
 
 ```powershell
-docker pull jingcang/control-api:1.2.0
-docker pull jingcang/browser-bundle:1.2.0
+docker pull jingcang/control-api:1.2.1
+docker pull jingcang/browser-bundle:1.2.1
 docker compose --env-file deploy/.env.production -f deploy/compose.production.yaml up -d --no-build
 ```
 
 生产 Compose 会先运行一次 `browser-preload`。它挂载 `/var/run/docker.sock`，把 bundle 内的浏览器镜像通过 `docker load` 导入宿主 Docker Engine；只有 preload 成功后 Selenium Dynamic Grid 才会启动。因此目标机即使无法访问公网，也可以直接使用 bundle 中的预置浏览器版本。
+
+如需完全离线扩展浏览器版本，将 `docker save` 生成的 `.tar` / `.tar.gz` / `.tgz` 放入部署目录的 `browser-images/`，并配置 `JINGCANG_BROWSER_OFFLINE_MODE=true`、`JINGCANG_BROWSER_AUTO_SYNC_LOCAL_IMAGES=true`。Control API 会定时自动导入镜像、发现 `selenium/standalone-*` tag、顺序启动并健康检查对应节点，成功后直接同步到浏览器管理列表，无需逐个调用“添加浏览器版本”。重复扫描不会重复创建已登记的厂商/版本。
 
 ## 9. 健康检查
 
@@ -270,7 +276,7 @@ git checkout main
 git pull --ff-only
 
 # 备份生产 DB
-.\scripts\build-production.ps1 -Tag 1.1.1
+.\scripts\build-production.ps1 -Tag 1.2.1
 
 docker compose `
   --env-file deploy/.env.production `
@@ -287,8 +293,8 @@ docker compose `
 保留至少一个上一个稳定版本镜像，例如：
 
 ```text
-jingcang/control-api:1.1.0
-jingcang/control-api:1.1.1
+jingcang/control-api:1.2.0
+jingcang/control-api:1.2.1
 ```
 
 回滚时：
@@ -305,8 +311,8 @@ jingcang/control-api:1.1.1
 
 ```powershell
 docker login ghcr.io
-docker tag jingcang/control-api:1.2.0 ghcr.io/programmerguohuajing/jingcang:1.2.0
-docker push ghcr.io/programmerguohuajing/jingcang:1.2.0
+docker tag jingcang/control-api:1.2.1 ghcr.io/programmerguohuajing/jingcang:1.2.1
+docker push ghcr.io/programmerguohuajing/jingcang:1.2.1
 ```
 
 正式环境建议使用不可变版本号或 digest，不要仅依赖 `latest`。
@@ -316,7 +322,7 @@ docker push ghcr.io/programmerguohuajing/jingcang:1.2.0
 - `deploy/.env.production` 权限应限制为部署管理员可读。
 - Docker Socket 不得暴露到 TCP 公网。
 - 当前“在线增加浏览器版本”和 Selenium Dynamic Grid 都需要访问 Docker Socket；获得 Docker Socket 访问权等价于获得宿主机高权限，应限制生产主机登录权限。
-- 网关默认只监听 `127.0.0.1`。公网环境应由独立 TLS 反向代理暴露。
+- 生产默认绑定 `0.0.0.0:8088` 以支持局域网访问；公网环境应通过防火墙限制来源，并由独立 TLS 反向代理暴露。
 - 不要直接暴露 4444、5900、7900。
 - 定期执行 `pnpm audit --prod` 并更新固定镜像版本。
 - 生产数据卷应纳入离机备份策略。
@@ -337,7 +343,7 @@ docker compose --env-file deploy/.env.production -f deploy/compose.production.ya
 docker compose --env-file deploy/.env.production -f deploy/compose.production.yaml ps
 docker compose --env-file deploy/.env.production -f deploy/compose.production.yaml logs --tail=200 control-api
 docker compose --env-file deploy/.env.production -f deploy/compose.production.yaml logs --tail=200 selenium-docker
-docker image inspect jingcang/control-api:1.2.0
+docker image inspect jingcang/control-api:1.2.1
 docker volume ls | findstr jingcang_prod
 ```
 

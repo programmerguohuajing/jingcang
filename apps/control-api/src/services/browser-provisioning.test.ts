@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSeleniumRepository, selectSeleniumTag } from './browser-provisioning.service.js';
+import { BrowserProvisioningService, buildSeleniumRepository, selectSeleniumTag } from './browser-provisioning.service.js';
 
 test('buildSeleniumRepository supports a custom registry namespace', () => {
   assert.equal(
@@ -38,4 +38,46 @@ test('selectSeleniumTag resolves a full browser version to a dated release', () 
     ]),
     '140.0.7339.207-20260909'
   );
+});
+test('offline auto-sync provisions local images and skips existing catalog versions', async () => {
+  const service = Object.create(BrowserProvisioningService.prototype) as BrowserProvisioningService;
+  const added: any[] = [];
+  const started: string[] = [];
+
+  (service as any).imageRepositoryPrefix = 'registry.local/selenium';
+  (service as any).docker = {
+    async listImageTags(repository: string) {
+      const tags: Record<string, string[]> = {
+        'registry.local/selenium/standalone-chrome': ['latest', '140.0'],
+        'registry.local/selenium/standalone-edge': ['130.0']
+      };
+      return tags[repository] || [];
+    },
+    async removeContainer() {},
+    async startStandaloneBrowser(image: string, _name: string, browserId: string) {
+      started.push(image);
+      return { containerId: `container-${browserId}`, gridUrl: `http://${browserId}:4444` };
+    },
+    async waitUntilReady() {}
+  };
+  (service as any).catalogService = {
+    getBrowserByVendorVersion(browserName: string, version: string) {
+      if (browserName === 'chrome' && version === 'latest') return { id: 'chrome-stable' };
+      return null;
+    },
+    addDynamicCatalogItem(item: any, containerId: string) {
+      added.push({ item, containerId });
+      return item;
+    }
+  };
+
+  await (service as any).performLocalImageSync();
+
+  assert.deepEqual(started.sort(), [
+    'registry.local/selenium/standalone-chrome:140.0',
+    'registry.local/selenium/standalone-edge:130.0'
+  ]);
+  assert.equal(added.length, 2);
+  assert.equal(added[0].item.enabled, true);
+  assert.match(added[0].item.gridUrl, /^http:\/\//);
 });

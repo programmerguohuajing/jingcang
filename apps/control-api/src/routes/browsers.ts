@@ -123,11 +123,7 @@ export function registerBrowserRoutes(
     return { success: true, data: item };
   });
 
-  fastify.post('/api/v1/browser-installs', {
-    config: {
-      rateLimit: { max: 5, timeWindow: '1 hour' }
-    }
-  }, async (request, reply) => {
+  fastify.post('/api/v1/browser-installs', async (request, reply) => {
     const user = getUser(request);
     if (!user) {
       return reply.status(401).send({

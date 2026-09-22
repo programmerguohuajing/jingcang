@@ -65,7 +65,7 @@ SERVER_IP=$(hostname -I | awk '{print $1}')
 ADMIN_PASSWORD=$(openssl rand -base64 24 | tr -d '\n')
 
 cat > .env <<EOF
-JINGCANG_VERSION=1.2.0
+JINGCANG_VERSION=1.2.1
 JINGCANG_BIND_HOST=0.0.0.0
 JINGCANG_PORT=8088
 JINGCANG_LAN_ACCESS_ENABLED=true
@@ -74,6 +74,7 @@ JINGCANG_PUBLIC_HOSTNAME=${SERVER_IP}
 JINGCANG_TIMEZONE=Asia/Shanghai
 JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX=selenium
 JINGCANG_BROWSER_OFFLINE_MODE=false
+JINGCANG_BROWSER_AUTO_SYNC_LOCAL_IMAGES=
 JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS=30
 JINGCANG_SESSION_SECRET=$(openssl rand -hex 32)
 JINGCANG_VIEWER_SECRET=$(openssl rand -hex 32)
@@ -114,8 +115,8 @@ docker compose pull
 Compose 会自动拉取：
 
 ```text
-jingguohua102/jingcang:1.2.0
-jingguohua102/jingcang:browser-bundle-1.2.0
+jingguohua102/jingcang:1.2.1
+jingguohua102/jingcang:browser-bundle-1.2.1
 Nginx
 Selenium Dynamic Grid
 ```
@@ -173,6 +174,7 @@ JINGCANG_BROWSER_REGISTRY_PASSWORD=your-password
 
 ```dotenv
 JINGCANG_BROWSER_OFFLINE_MODE=true
+JINGCANG_BROWSER_AUTO_SYNC_LOCAL_IMAGES=true
 JINGCANG_BROWSER_IMAGE_SCAN_INTERVAL_SECONDS=30
 ```
 
@@ -198,14 +200,16 @@ ssh root@SERVER 'mv /opt/jingcang/browser-images/chrome-140.tar.part /opt/jingca
 
 Control API 会定时扫描 `/opt/jingcang/browser-images`，识别 `.tar`、`.tar.gz`、`.tgz`，并通过 Docker Socket 自动执行镜像导入。无需手工运行 `docker load`，也无需重启 JingCang。
 
-确认镜像已加载：
+当 `JINGCANG_BROWSER_AUTO_SYNC_LOCAL_IMAGES=true` 时，JingCang 会继续扫描本机 `selenium/standalone-*` 镜像标签。发现尚未登记的版本后，会按顺序启动对应 standalone 浏览器节点，健康检查通过后自动写入浏览器管理列表。整个过程不需要调用“添加浏览器版本”HTTP 接口；同时该手动添加接口原有的 `5 次/小时` 低频限流也已取消。
+
+确认镜像与自动同步状态：
 
 ```bash
 docker images | grep 'standalone-'
-docker compose logs --tail=100 control-api
+docker compose logs --tail=300 control-api | grep -E 'Imported offline|Auto-synced|Failed to auto-sync'
 ```
 
-之后在 JingCang 的“添加浏览器版本”中输入对应厂商和版本。JingCang 会优先匹配本机已加载的镜像；离线模式下不会查询 Docker Hub，也不会尝试公网拉取。若本地没有匹配镜像，会直接提示需要上传离线镜像包。
+管理端不需要再逐个手工添加这些离线版本。重复扫描具有幂等性：已经存在于浏览器 Catalog 的厂商/版本不会重复创建节点。离线模式下不会查询 Docker Hub，也不会尝试公网拉取。
 
 离线 tar 中的镜像 tag 应保留为 `selenium/standalone-*`，或者与 `JINGCANG_BROWSER_IMAGE_REPOSITORY_PREFIX` 配置的仓库前缀一致。
 
