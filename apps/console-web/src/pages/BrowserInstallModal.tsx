@@ -45,6 +45,8 @@ const STEPS = [
 export const BrowserInstallModal: React.FC<BrowserInstallModalProps> = ({ onClose, onInstalled }) => {
   const [browserName, setBrowserName] = useState<BrowserVendor>('chrome');
   const [version, setVersion] = useState('');
+  const [useOffline, setUseOffline] = useState(true);
+  const [allowRemote, setAllowRemote] = useState(true);
   const [job, setJob] = useState<BrowserInstallJob | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -95,7 +97,12 @@ export const BrowserInstallModal: React.FC<BrowserInstallModalProps> = ({ onClos
     setError('');
     setPollAttempt(0);
 
-    const request: BrowserInstallRequest = { browserName, version: version.trim() };
+    const request: BrowserInstallRequest = {
+      browserName,
+      version: version.trim(),
+      useOffline,
+      allowRemote
+    };
     if (!request.version) {
       setError('请输入要接入的浏览器版本');
       return;
@@ -202,9 +209,47 @@ export const BrowserInstallModal: React.FC<BrowserInstallModalProps> = ({ onClos
               </p>
             </fieldset>
 
+            <fieldset>
+              <legend>03 / 镜像来源与获取方式</legend>
+              <div className="browser-source-options">
+                <label className={`browser-source-checkbox ${useOffline ? 'checked' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={useOffline}
+                    disabled={submitting}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      if (!next && !allowRemote) return;
+                      setUseOffline(next);
+                    }}
+                  />
+                  <div>
+                    <strong>获取离线镜像（优先检索本地或离线安装包）</strong>
+                    <small>优先匹配已导入的本地镜像或固定归档文件夹（如 /app/browser-images），命中后免下载快速接入。</small>
+                  </div>
+                </label>
+                <label className={`browser-source-checkbox ${allowRemote ? 'checked' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={allowRemote}
+                    disabled={submitting}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      if (!next && !useOffline) return;
+                      setAllowRemote(next);
+                    }}
+                  />
+                  <div>
+                    <strong>根据版本号检索远程仓库（离线未命中时自动联网检索）</strong>
+                    <small>当离线包中未包含输入版本时，自动向官方/私有镜像仓库按版本号检索最新稳定镜像标签并下载。</small>
+                  </div>
+                </label>
+              </div>
+            </fieldset>
+
             <div className="browser-image-preview">
               <div>
-                <span>官方仓库解析</span>
+                <span>{useOffline && allowRemote ? '解析策略：优先本地/离线 ➔ 自动回退远程仓库检索' : useOffline ? '解析策略：纯离线镜像导入（仅本地/固定归档目录）' : '解析策略：在线模式（直接通过远程仓库检索版本）'}</span>
                 <code>{image}</code>
               </div>
               <span className="browser-image-platform">LINUX / AMD64</span>

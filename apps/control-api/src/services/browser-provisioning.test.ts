@@ -81,3 +81,54 @@ test('offline auto-sync provisions local images and skips existing catalog versi
   assert.equal(added[0].item.enabled, true);
   assert.match(added[0].item.gridUrl, /^http:\/\//);
 });
+
+test('resolveSeleniumImage prioritizes local/offline image when available', async () => {
+  const service = Object.create(BrowserProvisioningService.prototype) as BrowserProvisioningService;
+  (service as any).imageRepositoryPrefix = 'selenium';
+  (service as any).importOfflineBrowserArchives = async () => [];
+  (service as any).findLocalSeleniumImage = async (_name: string, version: string) => {
+    if (version === '140') return 'selenium/standalone-chrome:140.0-20260909';
+    return null;
+  };
+
+  const image = await (service as any).resolveSeleniumImage('chrome', '140', {
+    useOffline: true,
+    allowRemote: true
+  });
+  assert.equal(image, 'selenium/standalone-chrome:140.0-20260909');
+});
+
+test('resolveSeleniumImage falls back to remote registry when offline image is missing', async () => {
+  const service = Object.create(BrowserProvisioningService.prototype) as BrowserProvisioningService;
+  (service as any).imageRepositoryPrefix = 'selenium';
+  (service as any).importOfflineBrowserArchives = async () => [];
+  (service as any).findLocalSeleniumImage = async () => null;
+  (service as any).fetchOfficialSeleniumTags = async () => [
+    '120.0-20231201',
+    '120.0.6099.109-20231201'
+  ];
+
+  const image = await (service as any).resolveSeleniumImage('chrome', '120', {
+    useOffline: true,
+    allowRemote: true
+  });
+  assert.equal(image, 'selenium/standalone-chrome:120.0-20231201');
+});
+
+test('resolveSeleniumImage rejects remote search when allowRemote is false', async () => {
+  const service = Object.create(BrowserProvisioningService.prototype) as BrowserProvisioningService;
+  (service as any).imageRepositoryPrefix = 'selenium';
+  (service as any).importOfflineBrowserArchives = async () => [];
+  (service as any).findLocalSeleniumImage = async () => null;
+
+  await assert.rejects(
+    async () => {
+      await (service as any).resolveSeleniumImage('chrome', '120', {
+        useOffline: true,
+        allowRemote: false
+      });
+    },
+    /已禁用远程仓库检索/
+  );
+});
+

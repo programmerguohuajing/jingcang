@@ -175,7 +175,7 @@ button {
 .badge-expired { background-color: var(--text-subtle); color: #ffffff; }
 .badge-failed { background-color: #dc2626; color: #ffffff; }
 
-input, select {
+input:not([type="checkbox"]):not([type="radio"]), select {
   background-color: var(--input-bg);
   border: 1px solid var(--input-border);
   color: var(--input-text);
@@ -185,9 +185,17 @@ input, select {
   width: 100%;
   transition: background-color 0.2s, border-color 0.2s, color 0.2s;
 }
-input:focus, select:focus {
+input:not([type="checkbox"]):not([type="radio"]):focus, select:focus {
   outline: none;
   border-color: var(--primary-color);
+}
+
+input[type="checkbox"], input[type="radio"] {
+  width: auto;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
 }
 
 .modal-overlay {
@@ -545,6 +553,70 @@ input:focus, select:focus {
   color: var(--text-muted);
   font: 600 9px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
   letter-spacing: 0.07em;
+}
+
+.browser-source-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.browser-source-checkbox {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-subtle);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.browser-source-checkbox:hover {
+  border-color: var(--primary-color);
+  background: var(--bg-hover);
+}
+
+.browser-source-checkbox.checked {
+  border-color: var(--primary-color);
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.browser-source-checkbox input[type="checkbox"] {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px;
+  min-height: 16px;
+  max-width: 16px;
+  flex: 0 0 16px;
+  margin: 3px 0 0 0;
+  padding: 0;
+  cursor: pointer;
+  accent-color: var(--primary-color);
+}
+
+.browser-source-checkbox > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.browser-source-checkbox strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 3px;
+  line-height: 1.35;
+}
+
+.browser-source-checkbox small {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.45;
 }
 
 .browser-install-note {

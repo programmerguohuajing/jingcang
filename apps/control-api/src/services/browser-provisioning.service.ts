@@ -124,14 +124,19 @@ export class BrowserProvisioningService {
     const existingBrowser = this.catalogService.getBrowserByVendorVersion(input.browserName, input.version);
     const now = new Date().toISOString();
     const image = `${this.getImageRepository(input.browserName)}:${input.version}`;
+    const options = {
+      useOffline: input.useOffline !== false,
+      allowRemote: input.allowRemote !== false
+    };
+    const optionsJson = JSON.stringify(options);
 
     if (existingBrowser?.enabled) {
       const jobId = `install-${crypto.randomUUID()}`;
       db.prepare(`
         INSERT INTO browser_install_jobs (
           id, user_id, browser_name, version, image, status, status_message,
-          browser_id, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 'READY', ?, ?, ?, ?)
+          browser_id, options_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, 'READY', ?, ?, ?, ?, ?)
       `).run(
         jobId,
         userId,
@@ -140,6 +145,7 @@ export class BrowserProvisioningService {
         existingBrowser.image,
         '该浏览器版本已在舱位矩阵中，无需重复下载',
         existingBrowser.id,
+        optionsJson,
         now,
         now
       );
@@ -167,8 +173,8 @@ export class BrowserProvisioningService {
     db.prepare(`
       INSERT INTO browser_install_jobs (
         id, user_id, browser_name, version, image, status, status_message,
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, 'PENDING', ?, ?, ?)
+        options_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, 'PENDING', ?, ?, ?, ?)
     `).run(
       jobId,
       userId,
@@ -176,6 +182,7 @@ export class BrowserProvisioningService {
       input.version,
       image,
       '安装任务已创建，正在等待浏览器镜像准备',
+      optionsJson,
       now,
       now
     );
@@ -205,13 +212,25 @@ export class BrowserProvisioningService {
   }
 
   private async runInstall(jobId: string): Promise<void> {
-    const job = this.getInstallJob(jobId);
-    if (!job) return;
+    const db = getDb(this.config);
+    const row = db.prepare('SELECT * FROM browser_install_jobs WHERE id = ?').get(jobId) as any;
+    if (!row) return;
 
+    let options: { useOffline?: boolean; allowRemote?: boolean } = {
+      useOffline: true,
+      allowRemote: true
+    };
+    if (row.options_json) {
+      try {
+        options = JSON.parse(row.options_json);
+      } catch {}
+    }
+
+    const job = this.formatJob(row);
     let containerId: string | null = null;
     try {
-      this.updateJob(jobId, 'PULLING', `正在解析 ${job.browserName} ${job.version} 对应的浏览器镜像`);
-      const resolvedImage = await this.resolveSeleniumImage(job.browserName, job.version);
+      this.updateJob(jobId, 'PULLING', `正在解析 ${DISPLAY_NAMES[job.browserName] || job.browserName} ${job.version} 对应的浏览器镜像`);
+      const resolvedImage = await this.resolveSeleniumImage(job.browserName, job.version, options, jobId);
       this.setJobImage(jobId, resolvedImage);
       this.updateJob(jobId, 'PULLING', `正在确保镜像 ${resolvedImage} 可用`);
       await this.docker.pullImage(resolvedImage);
@@ -399,25 +418,55 @@ export class BrowserProvisioningService {
 
   private async resolveSeleniumImage(
     browserName: BrowserVendor,
-    requestedVersion: string
+    requestedVersion: string,
+    options?: { useOffline?: boolean; allowRemote?: boolean },
+    jobId?: string
   ): Promise<string> {
-    await this.importOfflineBrowserArchives();
-
+    const useOffline = options?.useOffline !== false;
+    const allowRemote = options?.allowRemote !== false;
     const requested = requestedVersion.trim();
-    const localImage = await this.findLocalSeleniumImage(browserName, requested);
-    if (localImage) return localImage;
+
+    if (useOffline) {
+      if (jobId) {
+        this.updateJob(jobId, 'PULLING', `正在检索本地及固定离线镜像目录...`);
+      }
+      await this.importOfflineBrowserArchives();
+      const localImage = await this.findLocalSeleniumImage(browserName, requested);
+      if (localImage) {
+        if (jobId) {
+          this.updateJob(jobId, 'PULLING', `已在本地/离线镜像中命中：${localImage}，准备启动节点`);
+        }
+        return localImage;
+      }
+    } else {
+      const localImage = await this.findLocalSeleniumImage(browserName, requested);
+      if (localImage) {
+        if (jobId) {
+          this.updateJob(jobId, 'PULLING', `已在本地镜像中命中：${localImage}，准备启动节点`);
+        }
+        return localImage;
+      }
+    }
+
+    if (!allowRemote) {
+      throw new Error(
+        `离线模式下未找到 ${DISPLAY_NAMES[browserName]} ${requested} 的本地镜像。` +
+        `已禁用远程仓库检索，请把 docker save 生成的镜像包上传到 ${this.imageArchiveDir || 'JINGCANG_BROWSER_IMAGE_ARCHIVE_DIR'} 后重试`
+      );
+    }
+
+    if (jobId) {
+      this.updateJob(
+        jobId,
+        'PULLING',
+        `离线镜像中未包含版本 ${requested}，正在根据版本号检索远程镜像仓库...`
+      );
+    }
 
     const repository = this.getImageRepository(browserName);
     const officialRepository = IMAGE_REPOSITORIES[browserName];
     const channel = requested.toLowerCase();
     const lookupVersion = /^\d+$/.test(requested) ? `${requested}.0` : requested;
-
-    if (this.offlineMode) {
-      throw new Error(
-        `离线模式下未找到 ${DISPLAY_NAMES[browserName]} ${requested} 的本地镜像。` +
-        `请把 docker save 生成的镜像包上传到 ${this.imageArchiveDir || 'JINGCANG_BROWSER_IMAGE_ARCHIVE_DIR'} 后重试`
-      );
-    }
 
     if (['latest', 'beta', 'dev', 'nightly'].includes(channel)) {
       return `${repository}:${channel}`;
@@ -427,52 +476,96 @@ export class BrowserProvisioningService {
       return `${repository}:${lookupVersion}`;
     }
 
-    const endpoint = new URL(`https://hub.docker.com/v2/repositories/${officialRepository}/tags`);
-    endpoint.searchParams.set('page_size', '100');
-    endpoint.searchParams.set('ordering', 'last_updated');
-    endpoint.searchParams.set('name', lookupVersion);
-
-    let response: Response;
+    let tags: string[] = [];
+    let remoteError: Error | null = null;
     try {
-      response = await fetch(endpoint, {
-        headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(15_000)
-      });
+      tags = await this.fetchOfficialSeleniumTags(officialRepository, requested, lookupVersion);
     } catch (error: any) {
-      throw new Error(
-        `无法查询 Selenium 官方镜像标签：${error?.message || 'Docker Hub 请求失败'}`
-      );
+      remoteError = error;
     }
 
-    if (!response.ok) {
-      throw new Error(`查询 Selenium 官方镜像标签失败：HTTP ${response.status}`);
-    }
-
-    const payload = await response.json() as {
-      results?: Array<{
-        name?: string;
-        tag_status?: string;
-        images?: Array<{ os?: string; architecture?: string }>;
-      }>;
-    };
-
-    const tags = (payload.results || [])
-      .filter((item) => item.tag_status !== 'inactive')
-      .filter((item) =>
-        !item.images?.length ||
-        item.images.some((image) => image.os === 'linux' && image.architecture === 'amd64')
-      )
-      .map((item) => item.name)
-      .filter((name): name is string => Boolean(name));
-
-    const selectedTag = selectSeleniumTag(requested, tags);
+    const selectedTag = tags.length > 0 ? selectSeleniumTag(requested, tags) : null;
     if (!selectedTag) {
+      if (remoteError) {
+        throw new Error(
+          `离线镜像目录中未找到 ${DISPLAY_NAMES[browserName]} ${requested}，且尝试连接远程仓库检索失败：${remoteError.message}。` +
+          `若当前为纯离线或无公网环境，请使用 docker save 导出镜像包并上传到 ${this.imageArchiveDir || '固定文件夹'} 后重试`
+        );
+      }
       throw new Error(
-        `未找到 ${DISPLAY_NAMES[browserName]} ${requested} 对应的官方 Selenium 镜像标签`
+        `未找到 ${DISPLAY_NAMES[browserName]} ${requested} 对应的镜像：离线镜像目录未包含该版本，远程官方仓库中亦未检索到匹配标签。请检查版本号后重试`
       );
     }
 
+    if (jobId) {
+      this.updateJob(
+        jobId,
+        'PULLING',
+        `已在远程仓库匹配到镜像标签 ${selectedTag}，正在下载并准备节点...`
+      );
+    }
     return `${repository}:${selectedTag}`;
+  }
+
+  private async fetchOfficialSeleniumTags(
+    officialRepository: string,
+    requested: string,
+    lookupVersion: string
+  ): Promise<string[]> {
+    const candidates = Array.from(new Set([
+      lookupVersion,
+      requested,
+      requested.split('.')[0]
+    ])).filter(Boolean);
+
+    const allTags = new Set<string>();
+
+    for (const queryName of candidates) {
+      const endpoint = new URL(`https://hub.docker.com/v2/repositories/${officialRepository}/tags`);
+      endpoint.searchParams.set('page_size', '100');
+      endpoint.searchParams.set('ordering', 'last_updated');
+      endpoint.searchParams.set('name', queryName);
+
+      try {
+        const response = await fetch(endpoint, {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(15_000)
+        });
+
+        if (response.ok) {
+          const payload = (await response.json()) as {
+            results?: Array<{
+              name?: string;
+              tag_status?: string;
+              images?: Array<{ os?: string; architecture?: string }>;
+            }>;
+          };
+
+          for (const item of payload.results || []) {
+            if (item.tag_status === 'inactive') continue;
+            if (
+              item.images?.length &&
+              !item.images.some((image) => image.os === 'linux' && image.architecture === 'amd64')
+            ) {
+              continue;
+            }
+            if (item.name) {
+              allTags.add(item.name);
+            }
+          }
+        }
+      } catch (err: any) {
+        if (allTags.size === 0 && queryName === candidates[0]) {
+          throw err;
+        }
+      }
+
+      if (allTags.size > 0 && selectSeleniumTag(requested, Array.from(allTags))) {
+        break;
+      }
+    }
+
+    return Array.from(allTags);
   }
 
   private updateJob(id: string, status: BrowserInstallStatus, statusMessage: string): void {

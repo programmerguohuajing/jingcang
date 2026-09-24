@@ -178,6 +178,11 @@ function initSchema(db: DatabaseSync) {
     db.exec('ALTER TABLE browser_catalog ADD COLUMN enabled_override INTEGER;');
   }
 
+  const installJobColumns = db.prepare('PRAGMA table_info(browser_install_jobs)').all() as Array<{ name: string }>;
+  if (!installJobColumns.some((column) => column.name === 'options_json')) {
+    db.exec('ALTER TABLE browser_install_jobs ADD COLUMN options_json TEXT;');
+  }
+
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_sessions_status_expires ON sessions(status, expires_at);
     CREATE INDEX IF NOT EXISTS idx_sessions_user_created ON sessions(user_id, created_at DESC);
