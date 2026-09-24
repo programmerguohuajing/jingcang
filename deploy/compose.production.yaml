@@ -22,12 +22,12 @@ services:
       - frontend
 
   control-api:
-    image: jingcang/control-api:${JINGCANG_IMAGE_TAG:-1.2.1}
+    image: jingcang/control-api:${JINGCANG_IMAGE_TAG:-1.3.0}
     build:
       context: ..
       dockerfile: apps/control-api/Dockerfile.production
       args:
-        VERSION: ${JINGCANG_IMAGE_TAG:-1.2.1}
+        VERSION: ${JINGCANG_IMAGE_TAG:-1.3.0}
         VCS_REF: ${JINGCANG_VCS_REF:-unknown}
         BUILD_DATE: ${JINGCANG_BUILD_DATE:-unknown}
     restart: unless-stopped

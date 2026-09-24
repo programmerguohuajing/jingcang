@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { Config } from '../config.js';
 import { getDb } from '../db/index.js';
-import { CatalogService } from './catalog.service.js';
+import { CatalogService, isVersionEquivalent } from './catalog.service.js';
 import { DockerEngineService } from './docker-engine.service.js';
 import {
   BrowserInstallJob,
@@ -95,6 +95,11 @@ export class BrowserProvisioningService {
         console.error('[BrowserProvisioning] Failed to import offline browser images:', error);
       }
       try {
+        await this.cleanupDuplicateCatalogItems();
+      } catch (error) {
+        console.error('[BrowserProvisioning] Failed to cleanup duplicate catalog items:', error);
+      }
+      try {
         await this.recoverInterruptedJobs();
       } catch (error) {
         console.error('[BrowserProvisioning] Failed to recover interrupted jobs:', error);
@@ -110,6 +115,7 @@ export class BrowserProvisioningService {
     if (this.imageArchiveDir && Number.isFinite(scanSeconds) && scanSeconds > 0) {
       const timer = setInterval(() => {
         this.importOfflineBrowserArchives()
+          .then(() => this.cleanupDuplicateCatalogItems())
           .then(() => this.syncLocalImagesToCatalog())
           .catch((error) => {
             console.error('[BrowserProvisioning] Offline browser image scan failed:', error);
@@ -141,9 +147,9 @@ export class BrowserProvisioningService {
         jobId,
         userId,
         input.browserName,
-        input.version,
+        existingBrowser.version,
         existingBrowser.image,
-        '该浏览器版本已在舱位矩阵中，无需重复下载',
+        `浏览器版本 ${existingBrowser.displayName} 已在舱位矩阵中，无需重复安装`,
         existingBrowser.id,
         optionsJson,
         now,
@@ -232,10 +238,24 @@ export class BrowserProvisioningService {
       this.updateJob(jobId, 'PULLING', `正在解析 ${DISPLAY_NAMES[job.browserName] || job.browserName} ${job.version} 对应的浏览器镜像`);
       const resolvedImage = await this.resolveSeleniumImage(job.browserName, job.version, options, jobId);
       this.setJobImage(jobId, resolvedImage);
+
+      const existingByImage = this.catalogService.getBrowserByImage?.(job.browserName, resolvedImage);
+      if (existingByImage?.enabled) {
+        this.updateJob(jobId, 'READY', `匹配到已存在的节点 ${existingByImage.displayName}，已直接复用`);
+        this.finishJob(jobId, existingByImage.id);
+        return;
+      }
+
+      const existingBrowser = this.catalogService.getBrowserByVendorVersion(job.browserName, job.version);
+      if (existingBrowser?.enabled) {
+        this.updateJob(jobId, 'READY', `匹配到已存在的节点 ${existingBrowser.displayName}，已直接复用`);
+        this.finishJob(jobId, existingBrowser.id);
+        return;
+      }
+
       this.updateJob(jobId, 'PULLING', `正在确保镜像 ${resolvedImage} 可用`);
       await this.docker.pullImage(resolvedImage);
 
-      const existingBrowser = this.catalogService.getBrowserByVendorVersion(job.browserName, job.version);
       const browserId = existingBrowser?.id || this.buildBrowserId(job.browserName, job.version);
       const jobSuffix = job.id.replace('install-', '').slice(0, 8);
       const containerName = `jc-${job.browserName}-${job.version.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 28)}-${jobSuffix}`
@@ -307,6 +327,22 @@ export class BrowserProvisioningService {
     return syncPromise;
   }
 
+  public async cleanupDuplicateCatalogItems(): Promise<void> {
+    const { removedIds, removedContainerIds } = this.catalogService.deduplicateCatalogItems();
+    if (removedIds.length > 0) {
+      console.info(
+        `[BrowserProvisioning] Cleaned up ${removedIds.length} duplicate browser catalog item(s): ${removedIds.join(', ')}`
+      );
+    }
+    for (const containerId of removedContainerIds) {
+      try {
+        await this.docker.removeContainer(containerId);
+      } catch (err) {
+        console.warn(`[BrowserProvisioning] Failed to remove duplicate container ${containerId}:`, err);
+      }
+    }
+  }
+
   private async performLocalImageSync(): Promise<void> {
     const candidates: Array<{
       browserName: BrowserVendor;
@@ -322,8 +358,35 @@ export class BrowserProvisioningService {
       ]));
 
       for (const repository of repositories) {
-        const tags = await this.docker.listImageTags(repository);
-        for (const version of tags) {
+        const rawTags = await this.docker.listImageTags(repository);
+        const tagGroups = new Map<string, string[]>();
+        for (const tag of rawTags) {
+          if (tag === 'latest' || /chromedriver|grid-/i.test(tag)) continue;
+          let matchedKey: string | null = null;
+          for (const key of tagGroups.keys()) {
+            if (isVersionEquivalent(key, tag)) {
+              matchedKey = key;
+              break;
+            }
+          }
+          if (matchedKey) {
+            tagGroups.get(matchedKey)!.push(tag);
+          } else {
+            tagGroups.set(tag, [tag]);
+          }
+        }
+
+        for (const group of tagGroups.values()) {
+          group.sort((a, b) => {
+            const hasDateA = /-\d{8}$/.test(a) ? 1 : 0;
+            const hasDateB = /-\d{8}$/.test(b) ? 1 : 0;
+            if (hasDateA !== hasDateB) return hasDateA - hasDateB;
+            const isStdA = /^\d+\.0$/.test(a) ? 0 : 1;
+            const isStdB = /^\d+\.0$/.test(b) ? 0 : 1;
+            if (isStdA !== isStdB) return isStdA - isStdB;
+            return a.length - b.length;
+          });
+          const version = group[0];
           const key = `${browserName}:${version}`;
           if (seen.has(key)) continue;
           seen.add(key);
@@ -342,6 +405,12 @@ export class BrowserProvisioningService {
 
     let synced = 0;
     for (const candidate of candidates) {
+      const existingByImage = this.catalogService.getBrowserByImage?.(
+        candidate.browserName,
+        candidate.image
+      );
+      if (existingByImage) continue;
+
       const existing = this.catalogService.getBrowserByVendorVersion(
         candidate.browserName,
         candidate.version
