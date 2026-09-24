@@ -197,7 +197,7 @@ export const ViewerPage: React.FC = () => {
             targetKeysym = NUMPAD_ACTION_MAP[code].keysym;
             targetCode = NUMPAD_ACTION_MAP[code].code;
           } else if (code in NUMPAD_DIGIT_MAP) {
-            const isDigit = numpadModeRef.current === 'digit' || numlock === true || numlock === null;
+            const isDigit = numpadModeRef.current === 'digit';
             if (isDigit) {
               targetKeysym = NUMPAD_DIGIT_MAP[code].keysym;
               targetCode = NUMPAD_DIGIT_MAP[code].code;
