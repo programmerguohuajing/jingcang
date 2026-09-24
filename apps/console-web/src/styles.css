@@ -198,6 +198,11 @@ input[type="checkbox"], input[type="radio"] {
   cursor: pointer;
 }
 
+body.modal-open, html.modal-open {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -207,6 +212,7 @@ input[type="checkbox"], input[type="radio"] {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  overscroll-behavior: contain;
 }
 
 .modal-content {
@@ -269,6 +275,7 @@ input[type="checkbox"], input[type="radio"] {
   overflow-y: auto;
   background: var(--modal-overlay-bg);
   backdrop-filter: blur(10px);
+  overscroll-behavior: contain;
 }
 
 .browser-install-modal {
@@ -282,6 +289,7 @@ input[type="checkbox"], input[type="radio"] {
   background: var(--bg-surface);
   color: var(--text-main);
   box-shadow: var(--card-shadow);
+  overscroll-behavior: contain;
 }
 
 .browser-install-topline {

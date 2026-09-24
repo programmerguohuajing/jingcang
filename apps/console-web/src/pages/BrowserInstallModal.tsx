@@ -126,12 +126,44 @@ export const BrowserInstallModal: React.FC<BrowserInstallModalProps> = ({ onClos
     notifiedReadyRef.current = false;
   };
 
+  useEffect(() => {
+    const originalBodyOverflow = document.body.style.overflow;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    document.body.classList.add('modal-open');
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !active && !submitting) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.classList.remove('modal-open');
+      document.body.style.overflow = originalBodyOverflow;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [active, submitting, onClose]);
+
+  const handleOverlayMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget && !active && !submitting) {
+      onClose();
+    }
+  };
+
   const currentStepIndex = job
     ? Math.max(0, STEPS.findIndex((step) => step.status === job.status))
     : -1;
 
   return (
-    <div className="modal-overlay browser-install-overlay" role="presentation">
+    <div
+      className="modal-overlay browser-install-overlay"
+      role="presentation"
+      onMouseDown={handleOverlayMouseDown}
+    >
       <div
         className="browser-install-modal"
         role="dialog"
