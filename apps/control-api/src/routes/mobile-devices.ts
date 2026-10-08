@@ -89,7 +89,9 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
   });
   function expireIdleSessions(){
     const threshold=new Date(Date.now()-2*60*60*1000).toISOString();
-    db.prepare("UPDATE mobile_sessions SET status='EXPIRED' WHERE status='READY' AND updated_at < ?").run(threshold);
+    // Remote leases must remain reserved until a trusted recovery handshake confirms
+    // the remote device is no longer controlled. Idle expiry alone is not proof.
+    db.prepare("UPDATE mobile_sessions SET status='EXPIRED' WHERE status='READY' AND node_id='windows-local-dev' AND updated_at < ?").run(threshold);
   }
   function touchSession(id:string){
     const threshold=new Date(Date.now()-30000).toISOString();

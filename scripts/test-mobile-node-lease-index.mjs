@@ -18,4 +18,9 @@ db.prepare("INSERT INTO mobile_sessions(id,device_id,user_id,mode,status,created
 console.log('CROSS_NODE_SAME_SERIAL_ALLOWED=PASS');
 assert.equal(db.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='index' AND name='idx_mobile_device_active'").get().n,0);
 console.log('OLD_INDEX_DROPPED=PASS');
+const cutoff='2026-10-09';
+db.prepare("UPDATE mobile_sessions SET status='EXPIRED' WHERE status='READY' AND node_id='windows-local-dev' AND updated_at < ?").run(cutoff);
+assert.equal(db.prepare("SELECT status FROM mobile_sessions WHERE id='legacy'").get().status,'EXPIRED');
+assert.equal(db.prepare("SELECT status FROM mobile_sessions WHERE id='other'").get().status,'READY');
+console.log('REMOTE_LEASE_RESERVED_ON_IDLE_TIMEOUT=PASS');
 db.close();
