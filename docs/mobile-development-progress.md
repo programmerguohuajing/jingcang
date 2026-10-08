@@ -29,5 +29,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 ```
 访问：`http://127.0.0.1:28088/mobile`。需要先登录该开发环境账号。
 
+### 2026-10-08 · 应用管理增强
+- Windows Android Agent 新增已安装第三方 App 查询，按包名校验后执行 App 启动和停止。
+- Control API 新增已授权移动会话的 App 列表接口，沿用会话所有者权限检查。
+- 移动设备页面新增 App 清单、启动、停止按钮。
+- 独立 Docker 开发环境重新构建成功，端到端验证读取到 6 个第三方 App；基础会话与浏览器冒烟测试继续通过。
+- **尚未实现 APK 上传安装/卸载和 Appium；新增加的启动/停止按钮还需人工交互验收。**
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

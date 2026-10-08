@@ -91,6 +91,16 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
       return reply.send(Buffer.from(await response.arrayBuffer()));
     }catch{return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
   });
+  server.get('/api/v1/mobile/sessions/:id/apps',async(req,reply)=>{
+    const row=await owner(req,reply);if(!row)return;
+    if(row.status!=='READY')return reply.code(409).send({success:false});
+    try{
+      const response=await agent('/devices/'+encodeURIComponent(row.device_id)+'/apps');
+      if(!response.ok)throw Error('APP_LIST_FAILED');
+      touchSession(row.id);
+      return {success:true,data:await response.json()};
+    }catch{return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
+  });
   server.post('/api/v1/mobile/sessions/:id/actions',async(req,reply)=>{
     const row=await owner(req,reply);if(!row)return;
     if(row.status!=='READY')return reply.code(409).send({success:false});

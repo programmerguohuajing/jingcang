@@ -10,6 +10,7 @@ export const MobileDevicesPage: React.FC = () => {
  const [shot,setShot]=useState('');
  const [startUrl,setStartUrl]=useState('https://example.com');
  const [typed,setTyped]=useState('');
+ const [apps,setApps]=useState<string[]>([]);
  const pointerStart=useRef<{x:number;y:number;time:number}|null>(null);
  const refresh=useCallback(async()=>{
   try{
@@ -37,6 +38,13 @@ export const MobileDevicesPage: React.FC = () => {
   if(!selected)return;
   const r=await fetch('/api/v1/mobile/sessions/'+encodeURIComponent(selected.id)+'/actions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!r.ok)setError('操作失败：设备连接不可用');else void screenshot(selected.id).catch(()=>{});
+ }
+ async function loadApps(){
+  if(!selected)return;
+  const response=await fetch('/api/v1/mobile/sessions/'+encodeURIComponent(selected.id)+'/apps');
+  const json=await response.json();
+  if(!response.ok){setError('获取 App 列表失败');return;}
+  setApps(json.data?.packages||[]);
  }
  async function stop(s:Session){
   await fetch('/api/v1/mobile/sessions/'+encodeURIComponent(s.id),{method:'DELETE'});
@@ -66,6 +74,7 @@ export const MobileDevicesPage: React.FC = () => {
     onPointerDown={e=>{const b=e.currentTarget.getBoundingClientRect();pointerStart.current={x:Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y:Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight),time:Date.now()};e.currentTarget.setPointerCapture(e.pointerId);}}
     onPointerUp={e=>{const start=pointerStart.current;pointerStart.current=null;if(!start)return;const b=e.currentTarget.getBoundingClientRect();const x=Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y=Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight);if(Math.hypot(x-start.x,y-start.y)<15)void action({type:'tap',x,y});else void action({type:'swipe',x1:start.x,y1:start.y,x2:x,y2:y,duration:Math.max(100,Math.min(2000,Date.now()-start.time))});}}
     onPointerCancel={()=>{pointerStart.current=null;}}/>}
+   <div style={{marginTop:16}}><button className="btn-secondary" onClick={()=>void loadApps()}>查看第三方 App</button>{apps.map(pkg=><div key={pkg} style={{display:'flex',gap:8,alignItems:'center',marginTop:8}}><code>{pkg}</code><button className="btn-secondary" onClick={()=>void action({type:'launchApp',package:pkg})}>启动</button><button className="btn-secondary" onClick={()=>void action({type:'stopApp',package:pkg})}>停止</button></div>)}</div>
    <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}><input aria-label="输入英文文本" value={typed} onChange={e=>setTyped(e.target.value)} placeholder="英文/数字输入" maxLength={120}/><button className="btn-secondary" onClick={()=>{void action({type:'text',text:typed});setTyped('');}}>输入</button></div>
    <div style={{display:'flex',justifyContent:'center',gap:12,marginTop:12}}>{(['BACK','HOME','APP_SWITCH'] as const).map(k=><button key={k} className="btn-secondary" onClick={()=>void action({type:'key',key:k})}>{k}</button>)}</div>
   </section>}

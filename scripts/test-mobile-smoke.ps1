@@ -26,6 +26,9 @@ try {
     if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 409) { Write-Output 'EXCLUSIVE_DEVICE_LEASE=PASS' }
     else { throw }
   }
+  $appList=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/sessions/'+$id+'/apps') -WebSession $session
+  if (-not $appList.success -or $null -eq $appList.data.packages) {throw 'App listing failed'}
+  Write-Output ('INSTALLED_THIRD_PARTY_APPS='+@($appList.data.packages).Count)
   $shot=Invoke-WebRequest -Uri ($base+'/api/v1/mobile/sessions/'+$id+'/screenshot') -WebSession $session -UseBasicParsing
   $bytes=$shot.Content
   if ($bytes -isnot [byte[]]) {$bytes=[System.Text.Encoding]::Default.GetBytes([string]$shot.Content)}

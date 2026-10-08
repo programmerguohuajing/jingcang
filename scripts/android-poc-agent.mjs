@@ -49,11 +49,16 @@ http.createServer(async(req,res)=>{
   if(req.method==='GET' && url.pathname==='/health') return send(res,200,{status:'ok',platform:process.platform});
   try {
     if(req.method==='GET' && url.pathname==='/devices') return send(res,200,{devices:await devices()});
-    const match=/^\/devices\/([^/]+)\/(screenshot|action)$/.exec(url.pathname);
+    const match=/^\/devices\/([^/]+)\/(screenshot|action|apps)$/.exec(url.pathname);
     if (!match || !validSerial(match[1])) return send(res,404,{error:'NOT_FOUND'});
     const serial=match[1];
     const found=(await devices()).find(d=>d.id===serial && d.state==='device');
     if (!found) return send(res,404,{error:'DEVICE_OFFLINE'});
+    if(req.method==='GET' && match[2]==='apps'){
+      const result=await adbText(['-s',serial,'shell','pm','list','packages','-3']);
+      const packages=result.split(/\r?\n/).filter(x=>x.startsWith('package:')).map(x=>x.slice(8)).filter(x=>/^[a-zA-Z][a-zA-Z0-9_.]{1,180}$/.test(x));
+      return send(res,200,{packages});
+    }
     if(req.method==='GET' && match[2]==='screenshot'){
       const {stdout}=await command(['-s',serial,'exec-out','screencap','-p'],12*1024*1024);
       res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'no-store','Content-Length':stdout.length});
@@ -65,6 +70,11 @@ http.createServer(async(req,res)=>{
         await adbText(['-s',serial,'shell','input','keyevent',keyCodes[body.key]]);
       }else if(body.type==='tap' && Number.isInteger(body.x) && Number.isInteger(body.y) && body.x>=0 && body.x<=10000 && body.y>=0 && body.y<=10000){
         await adbText(['-s',serial,'shell','input','tap',String(body.x),String(body.y)]);
+      }else if((body.type==='launchApp'||body.type==='stopApp') && typeof body.package==='string' && /^[a-zA-Z][a-zA-Z0-9_.]{1,180}$/.test(body.package)){
+        const installed=await adbText(['-s',serial,'shell','pm','path',body.package]);
+        if(!installed.includes('package:')) return send(res,404,{error:'PACKAGE_NOT_INSTALLED'});
+        if(body.type==='launchApp') await adbText(['-s',serial,'shell','monkey','-p',body.package,'-c','android.intent.category.LAUNCHER','1']);
+        else await adbText(['-s',serial,'shell','am','force-stop',body.package]);
       }else if(body.type==='text' && typeof body.text==='string' && body.text.length>0 && body.text.length<=120 && /^[A-Za-z0-9 .@:_/-]+$/.test(body.text)){
         await adbText(['-s',serial,'shell','input','text',body.text.replace(/ /g,'%s')]);
       }else if(body.type==='navigate' && typeof body.url==='string' && body.url.length<=2048 && /^https?:\/\//i.test(body.url)){
