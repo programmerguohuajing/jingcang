@@ -1,49 +1,68 @@
 import React, { useCallback, useEffect, useState } from 'react';
-
-type Device = { id: string; kind: string; state: string; model?: string; osVersion?: string; booted?: boolean };
-type Payload = { success: boolean; data?: { status: string; devices: Device[] }; error?: { message: string } };
-
+type Device = {id:string;kind:string;state:string;model?:string;osVersion?:string;booted?:boolean};
+type Session = {id:string;device_id:string;mode:string;status:string};
 export const MobileDevicesPage: React.FC = () => {
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [status, setStatus] = useState('loading');
-  const [error, setError] = useState('');
-  const refresh = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/mobile/devices', { credentials: 'same-origin' });
-      const body = await res.json() as Payload;
-      if (!res.ok || !body.success || !body.data) throw new Error(body.error?.message || '设备查询失败');
-      setDevices(body.data.devices);
-      setStatus(body.data.status);
-      setError('');
-    } catch (e) {
-      setStatus('error');
-      setError(e instanceof Error ? e.message : '未知错误');
-    }
-  }, []);
-  useEffect(() => {
-    void refresh();
-    const timer = setInterval(() => { void refresh(); }, 12000);
-    return () => clearInterval(timer);
-  }, [refresh]);
-  return (
-    <main style={{ maxWidth: 1100, margin: '32px auto', padding: '0 24px', color: 'var(--text-main)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div><h1>移动设备池</h1><p style={{ color: 'var(--text-muted)' }}>Android 优先 · Agent 设备发现与在线状态</p></div>
-        <button className="btn-secondary" onClick={() => void refresh()}>刷新设备</button>
-      </div>
-      <section style={{ padding: 20, border: '1px solid var(--nav-border)', borderRadius: 12, marginTop: 20 }}>
-        <p>Android Agent：<strong>{status === 'online' ? '在线' : status === 'loading' ? '检测中' : status === 'not-configured' ? '未配置' : '离线或连接失败'}</strong></p>
-        {error && <p role="alert">{error}</p>}
-        {devices.length === 0 && <p style={{ color: 'var(--text-muted)' }}>暂无已发现设备。请检查 Windows Agent 与 ADB。</p>}
-        {devices.map(device => (
-          <div key={device.id} style={{ padding: 18, border: '1px solid var(--nav-border)', borderRadius: 10, margin: '12px 0' }}>
-            <h3 style={{ margin: '0 0 8px' }}>{device.model || device.id}</h3>
-            <p style={{ margin: 0 }}>类型：{device.kind === 'android-emulator' ? 'Android 模拟器' : 'Android 真机'} · 系统：{device.osVersion || '未知'} · 状态：{device.state} · {device.booted ? '启动完成' : '待就绪'}</p>
-            <small style={{ color: 'var(--text-muted)' }}>设备 ID：{device.id}</small>
-          </div>
-        ))}
-        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>当前为设备发现验证阶段。云手机启动、画面与触控操作将在后续阶段开放。</p>
-      </section>
-    </main>
-  );
+ const [devices,setDevices]=useState<Device[]>([]);
+ const [sessions,setSessions]=useState<Session[]>([]);
+ const [status,setStatus]=useState('loading');
+ const [error,setError]=useState('');
+ const [selected,setSelected]=useState<Session|null>(null);
+ const [shot,setShot]=useState('');
+ const [startUrl,setStartUrl]=useState('https://example.com');
+ const refresh=useCallback(async()=>{
+  try{
+   const [r,s]=await Promise.all([fetch('/api/v1/mobile/devices'),fetch('/api/v1/mobile/sessions')]);
+   if(!r.ok||!s.ok)throw Error('登录已失效或服务不可用');
+   const a=await r.json(), b=await s.json();
+   setDevices(a.data?.devices||[]);setStatus(a.data?.status||'offline');
+   setSessions(b.data||[]);setError('');
+  }catch(e){setError(String(e));setStatus('offline');}
+ },[]);
+ const screenshot=useCallback(async(id:string)=>{
+  const r=await fetch('/api/v1/mobile/sessions/'+encodeURIComponent(id)+'/screenshot');
+  if(!r.ok)throw Error('无法从设备获取画面');
+  const blob=await r.blob();setShot(old=>{if(old)URL.revokeObjectURL(old);return URL.createObjectURL(blob);});
+ },[]);
+ useEffect(()=>{void refresh();const i=setInterval(()=>void refresh(),10000);return()=>clearInterval(i)},[refresh]);
+ useEffect(()=>{if(!selected)return;void screenshot(selected.id).catch(e=>setError(String(e)));const i=setInterval(()=>void screenshot(selected.id).catch(()=>{}),1800);return()=>clearInterval(i)},[selected,screenshot]);
+ async function create(deviceId:string,mode:'phone'|'browser'){
+  const r=await fetch('/api/v1/mobile/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId,mode,startUrl})});
+  const json=await r.json();
+  if(!r.ok){setError(json.error?.message||json.error?.code||'设备占用或无法连接');return;}
+  await refresh();setSelected({id:json.data.id,device_id:deviceId,mode,status:'READY'});
+ }
+ async function action(body:object){
+  if(!selected)return;
+  const r=await fetch('/api/v1/mobile/sessions/'+encodeURIComponent(selected.id)+'/actions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok)setError('操作失败：设备连接不可用');else void screenshot(selected.id).catch(()=>{});
+ }
+ async function stop(s:Session){
+  await fetch('/api/v1/mobile/sessions/'+encodeURIComponent(s.id),{method:'DELETE'});
+  if(selected?.id===s.id){setSelected(null);setShot('');}await refresh();
+ }
+ return <main style={{maxWidth:1100,margin:'30px auto',padding:'0 24px',color:'var(--text-main)'}}>
+  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><h1>移动设备池</h1><p>Agent 状态：{status==='online'?'在线':status==='loading'?'检测中':'离线'} · Android 优先</p></div><button className="btn-secondary" onClick={()=>void refresh()}>刷新</button></div>
+  {error&&<p role="alert" style={{color:'#dc2626'}}>{error}</p>}
+  <label style={{display:'block',marginBottom:16}}>浏览器起始网址：<input value={startUrl} onChange={e=>setStartUrl(e.target.value)} style={{width:360,maxWidth:'100%',marginLeft:10,padding:8}} placeholder="https://example.com" /></label>
+  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(270px,1fr))',gap:16}}>
+   {devices.map(d=><section key={d.id} style={{border:'1px solid var(--nav-border)',padding:20,borderRadius:12}}>
+    <h3>{d.model||d.id}</h3><p>{d.kind==='android-emulator'?'Android 模拟器':'Android 真机'} · Android {d.osVersion||'未知'}</p>
+    <p>状态：{d.booted?'就绪':d.state}</p>
+    <div style={{display:'flex',gap:8}}><button className="btn-secondary" disabled={!d.booted} onClick={()=>void create(d.id,'phone')}>完整云手机</button><button className="btn-secondary" disabled={!d.booted} onClick={()=>void create(d.id,'browser')}>浏览器模式</button></div>
+   </section>)}
+  </div>
+  {devices.length===0&&<p>暂无在线 Android 设备，请检查 Windows Agent、ADB 与 Docker 连通性。</p>}
+  <h2 style={{marginTop:28}}>移动会话</h2>
+  {sessions.filter(s=>s.status==='READY').map(s=><div key={s.id} style={{marginBottom:12,display:'flex',gap:12,alignItems:'center'}}>
+   <span>{s.device_id} · {s.mode==='phone'?'完整云手机':'浏览器模式'}</span>
+   <button className="btn-secondary" onClick={()=>setSelected(s)}>连接画面</button><button className="btn-secondary" onClick={()=>void stop(s)}>结束</button>
+  </div>)}
+  {selected&&<section style={{marginTop:24,border:'1px solid var(--nav-border)',borderRadius:12,padding:20}}>
+   <h3>远程控制：{selected.device_id}</h3>
+   <p style={{fontSize:12}}>画面通过定时截图更新；点击画面执行触控（PoC 模式，非实时视频）。</p>
+   {shot&&<img src={shot} alt="Android 设备画面" style={{display:'block',maxWidth:'100%',maxHeight:650,cursor:'crosshair',margin:'auto'}}
+    onClick={e=>{const b=e.currentTarget.getBoundingClientRect();const x=Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth);const y=Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight);void action({type:'tap',x,y});}}/>}
+   <div style={{display:'flex',justifyContent:'center',gap:12,marginTop:12}}>{(['BACK','HOME','APP_SWITCH'] as const).map(k=><button key={k} className="btn-secondary" onClick={()=>void action({type:'key',key:k})}>{k}</button>)}</div>
+  </section>}
+ </main>;
 };
