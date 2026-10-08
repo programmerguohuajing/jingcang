@@ -92,7 +92,8 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     if(user.role!=='admin')return reply.code(403).send({success:false,error:{code:'ADMIN_ONLY'}});
     const {id,operation}=req.params as {id:string;operation:string};
     if(!/^[A-Za-z0-9._-]{1,80}$/.test(id)||!['start','stop'].includes(operation))return reply.code(400).send({success:false,error:{code:'INVALID_REQUEST'}});
-    if(operation==='stop'){
+    if(operation==='start'||operation==='stop'){
+      expireIdleSessions();
       const inUse=db.prepare("SELECT id FROM mobile_sessions WHERE device_id='emulator-5580' AND status='READY' LIMIT 1").get();
       if(inUse)return reply.code(409).send({success:false,error:{code:'DEVICE_BUSY'}});
     }

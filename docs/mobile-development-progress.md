@@ -107,5 +107,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - **实际验收：** API 24 与 API 27 两套配置均通过 CREATE/DISCOVERY/DELETE；不支持的 API 34 返回 400，原有 `Pixel_2` 的删除请求返回 400；测试后 `emulator -list-avds` 仍然只显示原来的三个配置。
 - **仍待验收：** 由新生成的 AVD 成功冷启动并运行，磁盘配额与多实例调度、Android 14 系统镜像安装及 UI 人工操作。当前后端采用固定名字/单实例安全边界，不是完整的自动设备工厂。
 
+### 2026-10-08 · 托管设备启动与活动租约冲突保护
+- 修复固定端口 emulator-5580 的资源保护：控制 API 对受控 AVD 的启动和停止都检查未过期的 READY 会话；设备被租用时返回 409 DEVICE_BUSY，避免抢占其他用户。
+- 仅在本次移动开发 Docker 数据库内更新租约到期状态，不接触原 8088 平台。
+- Lint 已通过，其他动态测试依据独立开发环境可用性继续执行。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。
