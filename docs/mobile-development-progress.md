@@ -69,5 +69,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 现有 emulator-5554 已被活跃会话占用，端到端脚本会如实输出 DEVICE_IN_USE_SKIP_SESSION_SMOKE，不自动抢占或回收他人会话。
 - 注意：还没有验证对正在启动中的 Agent 进程进行强制重启的全流程恢复；生产级租约、持久化节点注册、心跳仍待实现。
 
+### 2026-10-08 · Android 自动化能力诊断
+- 新增 Windows Agent `/capabilities`：通过只读 ADB 查询设备 API Level、ABI、安全补丁级别和 Chrome 是否安装。
+- Control API 新增需认证的 `/api/v1/mobile/capabilities`，控制台移动设备页增加自动化环境诊断区。
+- 本机未检测到 Appium 可执行命令，自动化状态明确标识 `automationReady=false`，不能宣称 Appium 脚本已可执行。
+- Lint、26 项单元测试和 Build 通过，独立 Docker 重新构建。端到端确认 1 台设备返回能力诊断，接口成功；原有设备由活动会话占用，测试脚本安全跳过创建新会话。
+- 待执行：Appium 工具链安装与 UiAutomator2 驱动兼容性测试、真实网页自动化脚本、安卓新系统镜像管理、实时流媒体、iOS Mac Agent。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

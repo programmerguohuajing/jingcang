@@ -12,6 +12,10 @@ Write-Output ('AUTH=OK AGENT_STATUS='+$devices.data.status+' DEVICES='+@($device
 $profiles=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/profiles') -WebSession $session
 if(-not $profiles.success){throw 'AVD profile discovery failed'}
 Write-Output ('AVD_PROFILES='+@($profiles.data.profiles).Count)
+$capabilities=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/capabilities') -WebSession $session
+if (-not $capabilities.success) {throw 'Device capabilities query failed'}
+Write-Output ('ANDROID_CAPABILITY_DEVICES='+@($capabilities.data.diagnostics).Count)
+Write-Output ('APPIUM_READY='+$capabilities.data.automationReady)
 try {
   Invoke-RestMethod -Uri ($base+'/api/v1/mobile/profiles/does_not_exist/start') -Method Post -WebSession $session -ContentType 'application/json' -Body '{}' | Out-Null
   throw 'Missing AVD start unexpectedly succeeded'

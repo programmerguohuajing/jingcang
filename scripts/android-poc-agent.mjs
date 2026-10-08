@@ -78,6 +78,21 @@ http.createServer(async(req,res)=>{
   const url = new URL(req.url || '/', 'http://localhost');
   if(req.method==='GET' && url.pathname==='/health') return send(res,200,{status:'ok',platform:process.platform});
   try {
+    if(req.method==='GET' && url.pathname==='/capabilities'){
+      const list=await devices();
+      const diagnostics=[];
+      for(const device of list.filter(x=>x.state==='device')){
+        const serial=device.id;
+        const props=await Promise.all([
+          adbText(['-s',serial,'shell','getprop','ro.build.version.sdk']).catch(()=>'unknown'),
+          adbText(['-s',serial,'shell','getprop','ro.product.cpu.abi']).catch(()=>'unknown'),
+          adbText(['-s',serial,'shell','pm','path','com.android.chrome']).catch(()=>''),
+          adbText(['-s',serial,'shell','getprop','ro.build.version.security_patch']).catch(()=>'unknown')
+        ]);
+        diagnostics.push({id:serial,apiLevel:Number(props[0])||null,abi:props[1],chromeInstalled:props[2].includes('package:'),securityPatch:props[3],appiumStatus:'not-verified'});
+      }
+      return send(res,200,{diagnostics,appiumHostAvailable:false,automationReady:false,note:'Appium driver and independent WebDriver session are not yet installed or verified'});
+    }
     if(req.method==='GET' && url.pathname==='/devices') return send(res,200,{devices:await devices()});
     if(req.method==='GET' && url.pathname==='/profiles'){
       const current=await profiles();
