@@ -193,5 +193,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 安全约束：远程节点控制地址必须为 HTTPS；HTTP 仅可使用本地/开发专用回环地址。不要将节点凭证提交到仓库、写入日志或通过不受信任的 HTTP 网络传输。开发环境多节点认证和上报仍未形成生产级 mTLS 及跨节点设备控制链路。
 - 新增 `scripts/test-mobile-node-heartbeat.mjs`，4 项测试：正常定时上报及停止、撤销停报、暂时故障重试、非安全 URL/无效凭证拒绝，全部 PASS；Control API TypeScript 检查及构建 PASS。真实多节点 Agent 主动心跳端到端和断网可靠性仍待独立节点实测。
 
+### 2026-10-08 · P1 视频会话释放后的流租约校验
+- MJPEG 流循环增加每帧会话租约检查，截图请求前及收到帧后再次检查数据库中的 READY 状态、node_id、device_id 与 user_id，避免客户端在会话终止后继续通过旧连接生成新的截图帧。
+- 新增 `scripts/test-mobile-stream-lease-revocation.mjs`，仅在设备没有被租用时创建独立测试会话、打开 MJPEG、读取首帧、释放会话并验证连接停止；不会释放已有用户会话。实测首帧、释放及流终止通过；释放后仍读取两段网络已缓冲数据，不能视为新产生的帧。
+- Control API 类型检查及构建、SQLite 复合租约 4 项、Agent 心跳 4 项测试通过，开发 Docker 成功重建；Android14 冷启动仍受主机虚拟内存影响，Linux KVM/iOS 真机与 H.264/WebRTC 未验收。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

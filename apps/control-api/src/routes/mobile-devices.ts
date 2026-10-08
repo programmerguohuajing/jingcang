@@ -253,13 +253,19 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     reply.send(output);
     void (async()=>{
       const deadline=Date.now()+100000;
+      const leaseActive=()=>{
+        expireIdleSessions();
+        const current=db.prepare('SELECT status,node_id,device_id,user_id FROM mobile_sessions WHERE id=?').get(row.id) as {status:string;node_id:string;device_id:string;user_id:string}|undefined;
+        return current?.status==='READY'&&current.node_id===row.node_id&&current.device_id===row.device_id&&current.user_id===row.user_id;
+      };
       while(!closed&&Date.now()<deadline){
+        if(!leaseActive())break;
         try{
           const shot=await agent('/devices/'+encodeURIComponent(row.device_id)+'/screenshot');
           if(!shot.ok)break;
           const buffer=Buffer.from(await shot.arrayBuffer());
           if(buffer.length<8||buffer.length>12*1024*1024)break;
-          if(closed)break;
+          if(closed||!leaseActive())break;
           const chunk=Buffer.concat([Buffer.from('--'+boundary+'\r\nContent-Type: image/png\r\nContent-Length: '+buffer.length+'\r\n\r\n'),buffer,Buffer.from('\r\n')]);
           if(!output.write(chunk))await new Promise<void>(resolve=>{output.once('drain',resolve);output.once('close',resolve);});
           touchSession(row.id);
