@@ -14,6 +14,15 @@ if(-not $login.success){throw 'Dev login failed'}
 $existing=Invoke-RestMethod ($base+'/api/v1/mobile/profiles') -WebSession $web
 if(@($existing.data.profiles | Where-Object {$_.id -eq $avd}).Count){throw 'Protected: Android 14 test AVD already exists'}
 if(@(& $adb devices | Select-String $serial).Count){throw 'Protected: test port already occupied'}
+$os=Get-CimInstance Win32_OperatingSystem
+$freePhysicalGb=[math]::Round($os.FreePhysicalMemory/1MB,2)
+$freeVirtualGb=[math]::Round($os.FreeVirtualMemory/1MB,2)
+Write-Output ('ANDROID14_FREE_PHYSICAL_GB='+$freePhysicalGb)
+Write-Output ('ANDROID14_FREE_VIRTUAL_GB='+$freeVirtualGb)
+if($freePhysicalGb -lt 8 -or $freeVirtualGb -lt 10){
+ Write-Output 'ANDROID14_COLD_BOOT_SKIPPED_INSUFFICIENT_HOST_MEMORY=YES'
+ exit 2
+}
 $created=$false
 $process=$null
 try{

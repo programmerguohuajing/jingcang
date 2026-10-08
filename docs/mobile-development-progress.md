@@ -146,5 +146,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - AVD 删除改为先尝试处理 `multiinstance.lock`：被模拟器持有时拒绝删除，避免先删配置再碰到 Windows 文件锁造成部分删除。新增 `scripts/test-android14-cold-boot.ps1`，以隔离端口 5584 测试并尽力回收；测试失败时必须明确保留 FAIL，不得宣称 Android14 可开机。
 - 剩余：解决 Windows 虚拟内存或 WHPX 资源问题后重测；验证联网/Chrome/ADB；Android14 的多实例调度和生产化、Appium 全链路及 H.264 流媒体仍未完成。
 
+### 2026-10-08 · Android 14 宿主资源预检与安全跳过
+- 新增 `scripts/check-android-host-resources.ps1`：只读检查 Windows 可用物理/虚拟内存、分页文件、运行中的模拟器数及 CPU 固件虚拟化字段，JSON 输出，不更改分页文件或关闭任何容器。
+- `scripts/test-android14-cold-boot.ps1` 现在在创建 AVD 前检查物理内存至少 8GB、虚拟内存至少 10GB（审慎的本地预检阈值，并非官方硬件要求），不足时输出 `ANDROID14_COLD_BOOT_SKIPPED_INSUFFICIENT_HOST_MEMORY=YES` 并退出码 2，不启动 QEMU。
+- 实测预检正确跳过：可用物理内存约 11.17GB、可用虚拟内存约 3.98GB；没有新建模拟器。独立资源检测在另一次采样中可用虚拟内存为 7.26GB，仍低于预检阈值。原有在线 emulator-5554 保持不变。
+- 当前 Android14 冷启动未通过，资源恢复、WHPX/QEMU 稳定性和 Android14 Chrome/APK 实测继续列为未完成项。不自动调整 Windows 全局分页文件配置。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。
