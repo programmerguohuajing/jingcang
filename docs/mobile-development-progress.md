@@ -152,5 +152,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 实测预检正确跳过：可用物理内存约 11.17GB、可用虚拟内存约 3.98GB；没有新建模拟器。独立资源检测在另一次采样中可用虚拟内存为 7.26GB，仍低于预检阈值。原有在线 emulator-5554 保持不变。
 - 当前 Android14 冷启动未通过，资源恢复、WHPX/QEMU 稳定性和 Android14 Chrome/APK 实测继续列为未完成项。不自动调整 Windows 全局分页文件配置。
 
+### 2026-10-08 · P1 Android Agent 节点健康信息与控制台诊断
+- Windows Agent 的受 Bearer Token 保护 `/health` 扩展节点标识、Agent 启动时间、进程运行秒数、托管模拟器数量和自动化运行数量；不暴露认证令牌或本机私密配置。
+- Fastify 新增需登录的 `/api/v1/mobile/agent-health`，成功透传节点健康信息并记录 checkedAt，离线时返回 503；Web 控制台设备池展示节点 ID、运行时间和托管模拟器数量，10 秒刷新。
+- 实测开发环境：`AGENT_NODE_HEALTH=PASS NODE=windows-local-dev`，匿名访问返回 HTTP 401，活动会话心跳及原有租约安全检查全部通过。全项目 Lint、26 项既有单元测试、Build 通过，独立 Docker 重建成功，8088 原业务网关 HTTP 200。
+- **这只是单节点健康状态可观测性**。正式的多节点 Agent 注册、服务端心跳失联判定、租约回收和跨节点调度仍未开发完成。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

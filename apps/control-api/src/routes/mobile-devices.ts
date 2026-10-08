@@ -29,6 +29,15 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     const result=await fetch(new URL(path,agentUrl),{...options,headers:{...options.headers,Authorization:'Bearer '+agentToken},signal:AbortSignal.timeout(path.endsWith('/automation') ? 180000 : path.endsWith('/install') ? 120000 : 15000)});
     return result;
   }
+  server.get('/api/v1/mobile/agent-health',async(req,reply)=>{
+    if(!userFor(req))return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
+    try{
+      const response=await agent('/health');
+      if(!response.ok)throw new Error('AGENT_UNHEALTHY');
+      const data=await response.json();
+      return {success:true,data:{...data,reachable:true,checkedAt:new Date().toISOString()}};
+    }catch{return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
+  });
   server.get('/api/v1/mobile/devices',async(req,reply)=>{
     if(!userFor(req)) return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
     try{

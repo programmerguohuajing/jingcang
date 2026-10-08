@@ -7,6 +7,9 @@ $base='http://127.0.0.1:28088'
 $session=New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $login=Invoke-RestMethod -Uri ($base+'/api/v1/auth/login') -Method Post -WebSession $session -ContentType 'application/json' -Body (@{username='admin';password=$password}|ConvertTo-Json)
 if (-not $login.success) { throw 'Login failed' }
+$health=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/agent-health') -WebSession $session
+if(-not $health.success -or -not $health.data.nodeId -or $health.data.uptimeSeconds -lt 0){throw 'Mobile Agent node health check failed'}
+Write-Output ('AGENT_NODE_HEALTH=PASS NODE='+$health.data.nodeId+' UPTIME='+$health.data.uptimeSeconds)
 $devices=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/devices') -WebSession $session
 Write-Output ('AUTH=OK AGENT_STATUS='+$devices.data.status+' DEVICES='+@($devices.data.devices).Count)
 foreach($d in @($devices.data.devices)){

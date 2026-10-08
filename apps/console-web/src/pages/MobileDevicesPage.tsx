@@ -13,6 +13,7 @@ export const MobileDevicesPage: React.FC = () => {
  const [sessions,setSessions]=useState<Session[]>([]);
  const managedPortBusy=sessions.some(s=>s.device_id==='emulator-5580'&&s.status==='READY');
  const [status,setStatus]=useState('loading');
+ const [agentHealth,setAgentHealth]=useState<{nodeId:string;uptimeSeconds:number;managedEmulatorCount:number;automationInProgress:number}|null>(null);
  const [error,setError]=useState('');
  const [selected,setSelected]=useState<Session|null>(null);
  const [shot,setShot]=useState('');
@@ -27,7 +28,8 @@ export const MobileDevicesPage: React.FC = () => {
  const pointerStart=useRef<{x:number;y:number;time:number}|null>(null);
  const refresh=useCallback(async()=>{
   try{
-   const [r,s,p,c,i]=await Promise.all([fetch('/api/v1/mobile/devices'),fetch('/api/v1/mobile/sessions'),fetch('/api/v1/mobile/profiles'),fetch('/api/v1/mobile/capabilities'),fetch('/api/v1/mobile/system-images')]);
+   const [r,s,p,c,i,h]=await Promise.all([fetch('/api/v1/mobile/devices'),fetch('/api/v1/mobile/sessions'),fetch('/api/v1/mobile/profiles'),fetch('/api/v1/mobile/capabilities'),fetch('/api/v1/mobile/system-images'),fetch('/api/v1/mobile/agent-health')]);
+   if(h.ok){const data=await h.json();setAgentHealth(data.data||null);}else setAgentHealth(null);
    if(i.ok){const info=await i.json();setImages(info.data?.images||[]);}
    if(c.ok){const data=await c.json();setCapabilities(data.data?.diagnostics||[]);setAppiumReady(Boolean(data.data?.automationReady));}else{setCapabilities([]);setAppiumReady(false);}
    if(p.ok){const profilePayload=await p.json();setProfiles(profilePayload.data?.profiles||[]);}
@@ -125,7 +127,7 @@ export const MobileDevicesPage: React.FC = () => {
   if(selected?.id===s.id){setSelected(null);setShot('');}await refresh();
  }
  return <main style={{maxWidth:1100,margin:'30px auto',padding:'0 24px',color:'var(--text-main)'}}>
-  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><h1>移动设备池</h1><p>Agent 状态：{status==='online'?'在线':status==='loading'?'检测中':'离线'} · Android 优先</p></div><button className="btn-secondary" onClick={()=>void refresh()}>刷新</button></div>
+  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><h1>移动设备池</h1><p>Agent 状态：{status==='online'?'在线':status==='loading'?'检测中':'离线'} · Android 优先 {agentHealth&&`· 节点 ${agentHealth.nodeId} · 运行 ${Math.floor(agentHealth.uptimeSeconds/60)} 分钟 · 托管 ${agentHealth.managedEmulatorCount} 台`}</p></div><button className="btn-secondary" onClick={()=>void refresh()}>刷新</button></div>
   {error&&<p role="alert" style={{color:'#dc2626'}}>{error}</p>}
   <label style={{display:'block',marginBottom:16}}>浏览器起始网址：<input value={startUrl} onChange={e=>setStartUrl(e.target.value)} style={{width:360,maxWidth:'100%',marginLeft:10,padding:8}} placeholder="https://example.com" /></label>
   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(270px,1fr))',gap:16}}>

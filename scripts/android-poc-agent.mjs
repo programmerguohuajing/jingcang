@@ -10,6 +10,8 @@ const exec = promisify(execFile);
 const managedAvds = new Map();
 const MANAGED_SERIAL = 'emulator-5580';
 const STARTUP_TIMEOUT_MS = 120000;
+const agentStartedAt = new Date().toISOString();
+const agentNodeId = process.env.JINGCANG_ANDROID_NODE_ID || 'windows-local-dev';
 let lifecycleBusy = false;
 const automationBusy = new Set();
 async function managedStatus(name){
@@ -95,7 +97,7 @@ const keyCodes = {HOME:'3',BACK:'4',APP_SWITCH:'187',ENTER:'66'};
 http.createServer(async(req,res)=>{
   if (!token || req.headers.authorization !== 'Bearer '+token) return send(res,401,{error:'UNAUTHORIZED'});
   const url = new URL(req.url || '/', 'http://localhost');
-  if(req.method==='GET' && url.pathname==='/health') return send(res,200,{status:'ok',platform:process.platform});
+  if(req.method==='GET' && url.pathname==='/health') return send(res,200,{status:'ok',platform:process.platform,nodeId:agentNodeId,startedAt:agentStartedAt,uptimeSeconds:Math.floor(process.uptime()),managedEmulatorCount:managedAvds.size,automationInProgress:automationBusy.size});
   try {
     if(req.method==='GET' && url.pathname==='/capabilities'){
       const list=await devices();
