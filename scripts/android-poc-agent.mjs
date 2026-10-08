@@ -1,15 +1,17 @@
 import http from 'node:http';
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
+import { tmpdir, homedir } from 'node:os';
 import path from 'node:path';
 
 const exec = promisify(execFile);
+const managedAvds = new Map();
 const host = process.env.JINGCANG_ANDROID_AGENT_HOST || '127.0.0.1';
 const token = process.env.JINGCANG_MOBILE_AGENT_TOKEN || '';
 const port = Number(process.env.JINGCANG_ANDROID_AGENT_PORT || 19879);
 const adb = process.env.JINGCANG_ADB_PATH || 'D:\\Program Files\\platform-tools\\adb.exe';
+const emulator = process.env.JINGCANG_EMULATOR_PATH || path.join(process.env.LOCALAPPDATA || path.join(homedir(),'AppData','Local'),'Android','Sdk','emulator','emulator.exe');
 if (host !== '127.0.0.1' && token.length < 32) throw new Error('Remote binding requires strong token');
 async function command(args, maxBuffer = 1024 * 1024) {
   return exec(adb, args, { timeout: 18000, maxBuffer, windowsHide: true, encoding: 'buffer' });
@@ -32,6 +34,18 @@ async function devices() {
   }
   return found;
 }
+async function profiles(){
+  const {stdout}=await exec(emulator,['-list-avds'],{timeout:15000,windowsHide:true});
+  const names=stdout.split(/\r?\n/).map(x=>x.trim()).filter(x=>/^[A-Za-z0-9._-]{1,80}$/.test(x));
+  return Promise.all(names.map(async name=>{
+    const file=path.join(homedir(),'.android','avd',name+'.avd','config.ini');
+    const config=await readFile(file,'utf8').catch(()=>'');
+    const image=/^image\.sysdir\.1\s*=\s*(.+)$/m.exec(config)?.[1]?.trim()||'';
+    const api=/android-(\d+)/.exec(image)?.[1]||null;
+    const model=/^hw\.device\.name\s*=\s*(.+)$/m.exec(config)?.[1]?.trim()||name;
+    return {id:name,model,apiLevel:api?Number(api):null,systemImage:image};
+  }));
+}
 function send(res, status, data) {
   res.writeHead(status, { 'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store' });
   res.end(JSON.stringify(data));
@@ -52,6 +66,29 @@ http.createServer(async(req,res)=>{
   if(req.method==='GET' && url.pathname==='/health') return send(res,200,{status:'ok',platform:process.platform});
   try {
     if(req.method==='GET' && url.pathname==='/devices') return send(res,200,{devices:await devices()});
+    if(req.method==='GET' && url.pathname==='/profiles') return send(res,200,{profiles:(await profiles()).map(p=>({...p,managed:managedAvds.has(p.id)}))});
+    const avdAction=/^\/profiles\/([A-Za-z0-9._-]{1,80})\/(start|stop)$/.exec(url.pathname);
+    if(req.method==='POST' && avdAction){
+      const name=avdAction[1],operation=avdAction[2];
+      if(operation==='stop'){
+        const child=managedAvds.get(name);
+        if(!child)return send(res,409,{error:'NOT_MANAGED_BY_AGENT'});
+        child.kill(); managedAvds.delete(name);
+        return send(res,200,{success:true,status:'stopping'});
+      }
+      if(managedAvds.has(name))return send(res,409,{error:'ALREADY_MANAGED'});
+      const online=(await devices()).filter(x=>x.id.startsWith('emulator-'));
+      for(const current of online){const activeName=await adbText(['-s',current.id,'emu','avd','name']).catch(()=>'');if(activeName.split(/\r?\n/)[0].trim()===name)return send(res,409,{error:'AVD_ALREADY_RUNNING'});}
+      if(online.some(x=>x.id==='emulator-5580'))return send(res,409,{error:'PORT_IN_USE'});
+      const list=await profiles();
+      if(!list.some(p=>p.id===name))return send(res,404,{error:'AVD_NOT_FOUND'});
+      if(managedAvds.size>=1)return send(res,409,{error:'POC_EMULATOR_LIMIT'});
+      const child=spawn(emulator,['-avd',name,'-port','5580','-no-snapshot-save'],{detached:false,stdio:'ignore',windowsHide:true});
+      child.on('error',()=>{if(managedAvds.get(name)===child)managedAvds.delete(name);});
+      child.on('exit',()=>{if(managedAvds.get(name)===child)managedAvds.delete(name);});
+      managedAvds.set(name,child);
+      return send(res,202,{success:true,status:'starting',serial:'emulator-5580'});
+    }
     const match=/^\/devices\/([^/]+)\/(screenshot|action|apps|install)$/.exec(url.pathname);
     if (!match || !validSerial(match[1])) return send(res,404,{error:'NOT_FOUND'});
     const serial=match[1];

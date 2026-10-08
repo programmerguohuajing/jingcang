@@ -9,6 +9,21 @@ $login=Invoke-RestMethod -Uri ($base+'/api/v1/auth/login') -Method Post -WebSess
 if (-not $login.success) { throw 'Login failed' }
 $devices=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/devices') -WebSession $session
 Write-Output ('AUTH=OK AGENT_STATUS='+$devices.data.status+' DEVICES='+@($devices.data.devices).Count)
+$profiles=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/profiles') -WebSession $session
+if(-not $profiles.success){throw 'AVD profile discovery failed'}
+Write-Output ('AVD_PROFILES='+@($profiles.data.profiles).Count)
+try {
+  Invoke-RestMethod -Uri ($base+'/api/v1/mobile/profiles/does_not_exist/start') -Method Post -WebSession $session -ContentType 'application/json' -Body '{}' | Out-Null
+  throw 'Missing AVD start unexpectedly succeeded'
+} catch {
+  if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 404){Write-Output 'UNKNOWN_AVD_REJECTION=PASS'}else{throw}
+}
+try {
+  Invoke-RestMethod -Uri ($base+'/api/v1/mobile/profiles/Android_7_0_API24/start') -Method Post -WebSession $session -ContentType 'application/json' -Body '{}' | Out-Null
+  throw 'Existing AVD duplicate launch unexpectedly succeeded'
+} catch {
+  if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 409){Write-Output 'DUPLICATE_AVD_REJECTION=PASS'}else{throw}
+}
 $available=@($devices.data.devices | Where-Object {$_.state -eq 'device' -and $_.booted})
 if ($available.Count -lt 1) { throw 'No booted Android devices' }
 $device=$available[0]

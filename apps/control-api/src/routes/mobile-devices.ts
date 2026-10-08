@@ -36,6 +36,30 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
       return {success:true,data:{status:'online',...(await result.json() as object)}};
     }catch{return {success:true,data:{status:'offline',devices:[]}};}
   });
+  server.get('/api/v1/mobile/profiles',async(req,reply)=>{
+    if(!userFor(req))return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
+    try{
+      const response=await agent('/profiles');
+      if(!response.ok)throw Error('PROFILES_UNAVAILABLE');
+      return {success:true,data:await response.json()};
+    }catch{return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
+  });
+  server.post('/api/v1/mobile/profiles/:id/:operation',async(req,reply)=>{
+    const user=userFor(req);
+    if(!user)return reply.code(401).send({success:false});
+    if(user.role!=='admin')return reply.code(403).send({success:false,error:{code:'ADMIN_ONLY'}});
+    const {id,operation}=req.params as {id:string;operation:string};
+    if(!/^[A-Za-z0-9._-]{1,80}$/.test(id)||!['start','stop'].includes(operation))return reply.code(400).send({success:false,error:{code:'INVALID_REQUEST'}});
+    if(operation==='stop'){
+      const inUse=db.prepare("SELECT id FROM mobile_sessions WHERE device_id='emulator-5580' AND status='READY' LIMIT 1").get();
+      if(inUse)return reply.code(409).send({success:false,error:{code:'DEVICE_BUSY'}});
+    }
+    try{
+      const response=await agent('/profiles/'+encodeURIComponent(id)+'/'+operation,{method:'POST'});
+      const result=await response.json();
+      return reply.code(response.status).send(response.ok?{success:true,data:result}:{success:false,error:result});
+    }catch{return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
+  });
   server.get('/api/v1/mobile/sessions',async(req,reply)=>{
     const user=userFor(req);if(!user)return reply.code(401).send({success:false});
     expireIdleSessions();

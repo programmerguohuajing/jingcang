@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 type Device = {id:string;kind:string;state:string;model?:string;osVersion?:string;booted?:boolean};
 type Session = {id:string;device_id:string;mode:string;status:string};
+type Profile = {id:string;model:string;apiLevel:number|null;systemImage:string;managed?:boolean};
 export const MobileDevicesPage: React.FC = () => {
  const [devices,setDevices]=useState<Device[]>([]);
+ const [profiles,setProfiles]=useState<Profile[]>([]);
  const [sessions,setSessions]=useState<Session[]>([]);
  const [status,setStatus]=useState('loading');
  const [error,setError]=useState('');
@@ -15,7 +17,8 @@ export const MobileDevicesPage: React.FC = () => {
  const pointerStart=useRef<{x:number;y:number;time:number}|null>(null);
  const refresh=useCallback(async()=>{
   try{
-   const [r,s]=await Promise.all([fetch('/api/v1/mobile/devices'),fetch('/api/v1/mobile/sessions')]);
+   const [r,s,p]=await Promise.all([fetch('/api/v1/mobile/devices'),fetch('/api/v1/mobile/sessions'),fetch('/api/v1/mobile/profiles')]);
+   if(p.ok){const profilePayload=await p.json();setProfiles(profilePayload.data?.profiles||[]);}
    if(!r.ok||!s.ok)throw Error('登录已失效或服务不可用');
    const a=await r.json(), b=await s.json();
    setDevices(a.data?.devices||[]);setStatus(a.data?.status||'offline');
@@ -39,6 +42,14 @@ export const MobileDevicesPage: React.FC = () => {
   if(!selected)return;
   const r=await fetch('/api/v1/mobile/sessions/'+encodeURIComponent(selected.id)+'/actions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!r.ok)setError('操作失败：设备连接不可用');else void screenshot(selected.id).catch(()=>{});
+ }
+ async function controlProfile(profile:Profile,operation:'start'|'stop'){
+  if(!window.confirm(operation==='start'?'启动该 Android 模拟器？':'停止由当前 Agent 启动的模拟器？'))return;
+  const response=await fetch('/api/v1/mobile/profiles/'+encodeURIComponent(profile.id)+'/'+operation,{method:'POST'});
+  const payload=await response.json();
+  if(!response.ok)setError(payload.error?.error||'操作失败');
+  else setError('');
+  await refresh();
  }
  async function loadApps(){
   if(!selected)return;
@@ -76,6 +87,9 @@ export const MobileDevicesPage: React.FC = () => {
    </section>)}
   </div>
   {devices.length===0&&<p>暂无在线 Android 设备，请检查 Windows Agent、ADB 与 Docker 连通性。</p>}
+  <h2 style={{marginTop:28}}>本机已安装的 Android 模拟器配置</h2>
+  <p style={{color:'var(--text-muted)'}}>仅展示真实存在的 AVD，系统镜像尚未自动创建或安装。</p>
+  {profiles.map(p=><div key={p.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{p.id}</strong> · {p.model} · API {p.apiLevel??'未知'} <button className="btn-secondary" onClick={()=>void controlProfile(p,p.managed?'stop':'start')}>{p.managed?'停止托管模拟器':'启动模拟器'}</button><div style={{fontSize:12,color:'var(--text-muted)'}}>{p.systemImage}</div></div>)}
   <h2 style={{marginTop:28}}>移动会话</h2>
   {sessions.filter(s=>s.status==='READY').map(s=><div key={s.id} style={{marginBottom:12,display:'flex',gap:12,alignItems:'center'}}>
    <span>{s.device_id} · {s.mode==='phone'?'完整云手机':'浏览器模式'}</span>

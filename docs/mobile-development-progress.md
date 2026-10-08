@@ -42,5 +42,17 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 端到端冒烟测试通过非法 APK 拒绝；**真实 APK 安装成功仍待使用已授权兼容测试包验收**。
 - 本机系统镜像仅发现 Android 4.4～8.1 部分镜像，Android 14 和 Appium 尚未配置；不宣称对应版本已实现。
 
+### 2026-10-08 · AVD 配置发现
+- Agent 新增只读 AVD 配置目录及 Android API Level 检测；控制台显示已安装配置，不擅自启动或覆盖已有模拟器。
+- 真实宿主机返回 3 个 AVD 配置：Android_5_0_API21、Android_7_0_API24、Pixel_2；Docker API 经过认证的端到端查询通过。
+- 尚待实现：选择已有 AVD 一键启动/关闭、Android 14 镜像安装/创建、跨节点资源调度。
+
+### 2026-10-08 · AVD 生命周期控制接口
+- Windows Agent 新增对已安装 AVD 的受控启动、停止操作；仅允许已发现 AVD，且最多管理一台由当前 Agent 启动的模拟器。
+- 只允许停止当前 Agent 管理的进程，不接管或终止手动启动的模拟器。
+- Control API 仅管理员可调用，停止前检查设备租约；Web 控制台新增启动/停止入口。
+- 非破坏性集成测试验证不存在的 AVD 返回 404、已运行的 Android_7_0_API24 重复启动返回 409；桌面浏览器及既有 Android 模拟器未被主动停止。
+- **新的 AVD 成功冷启动/停止尚未做真实运行测试**；Agent 进程重启后的托管恢复、并发端口分配和生产级调度仍待实现。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。
