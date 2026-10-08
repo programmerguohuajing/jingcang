@@ -9,7 +9,7 @@
 - Windows Android Agent：ADB 枚举已启动的 Android 模拟器、基本设备属性、PNG 截图、HOME/BACK/APP_SWITCH、点击/滑动及受限 Chrome URL 导航。
 - Agent API 使用独立令牌，未认证请求拒绝；密钥位于 Git 忽略的 `deploy/.env.mobile-agent` 中。
 - Fastify 移动设备 API：设备列表、独占会话创建、我的会话、截图、动作、结束会话、空闲超过两小时回收。
-- Web 移动设备页：设备发现、完整云手机/浏览器两种模式、基于定时截图的画面、点击和导航按键。
+- Web 移动设备页：设备发现、完整云手机/浏览器两种模式、基于定时截图的画面、点击/滑动、导航按键及受限英文/数字输入。
 - `pnpm lint`、`pnpm test`（26 项）、`pnpm build` 均通过；Docker Compose 构建运行成功。
 - HTTP 冒烟测试：登录、在线设备发现、独占占用冲突返回 409、截图 Content-Type、会话结束均通过。
 

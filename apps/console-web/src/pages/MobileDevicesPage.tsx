@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 type Device = {id:string;kind:string;state:string;model?:string;osVersion?:string;booted?:boolean};
 type Session = {id:string;device_id:string;mode:string;status:string};
 export const MobileDevicesPage: React.FC = () => {
@@ -9,6 +9,8 @@ export const MobileDevicesPage: React.FC = () => {
  const [selected,setSelected]=useState<Session|null>(null);
  const [shot,setShot]=useState('');
  const [startUrl,setStartUrl]=useState('https://example.com');
+ const [typed,setTyped]=useState('');
+ const pointerStart=useRef<{x:number;y:number;time:number}|null>(null);
  const refresh=useCallback(async()=>{
   try{
    const [r,s]=await Promise.all([fetch('/api/v1/mobile/devices'),fetch('/api/v1/mobile/sessions')]);
@@ -59,9 +61,12 @@ export const MobileDevicesPage: React.FC = () => {
   </div>)}
   {selected&&<section style={{marginTop:24,border:'1px solid var(--nav-border)',borderRadius:12,padding:20}}>
    <h3>远程控制：{selected.device_id}</h3>
-   <p style={{fontSize:12}}>画面通过定时截图更新；点击画面执行触控（PoC 模式，非实时视频）。</p>
-   {shot&&<img src={shot} alt="Android 设备画面" style={{display:'block',maxWidth:'100%',maxHeight:650,cursor:'crosshair',margin:'auto'}}
-    onClick={e=>{const b=e.currentTarget.getBoundingClientRect();const x=Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth);const y=Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight);void action({type:'tap',x,y});}}/>}
+   <p style={{fontSize:12}}>画面定时截图更新；支持点击、滑动、导航按键与简单英文输入（PoC 模式，非实时视频）。</p>
+   {shot&&<img src={shot} alt="Android 设备画面" style={{display:'block',maxWidth:'100%',maxHeight:650,cursor:'crosshair',margin:'auto',touchAction:'none'}}
+    onPointerDown={e=>{const b=e.currentTarget.getBoundingClientRect();pointerStart.current={x:Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y:Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight),time:Date.now()};e.currentTarget.setPointerCapture(e.pointerId);}}
+    onPointerUp={e=>{const start=pointerStart.current;pointerStart.current=null;if(!start)return;const b=e.currentTarget.getBoundingClientRect();const x=Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y=Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight);if(Math.hypot(x-start.x,y-start.y)<15)void action({type:'tap',x,y});else void action({type:'swipe',x1:start.x,y1:start.y,x2:x,y2:y,duration:Math.max(100,Math.min(2000,Date.now()-start.time))});}}
+    onPointerCancel={()=>{pointerStart.current=null;}}/>}
+   <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}><input aria-label="输入英文文本" value={typed} onChange={e=>setTyped(e.target.value)} placeholder="英文/数字输入" maxLength={120}/><button className="btn-secondary" onClick={()=>{void action({type:'text',text:typed});setTyped('');}}>输入</button></div>
    <div style={{display:'flex',justifyContent:'center',gap:12,marginTop:12}}>{(['BACK','HOME','APP_SWITCH'] as const).map(k=><button key={k} className="btn-secondary" onClick={()=>void action({type:'key',key:k})}>{k}</button>)}</div>
   </section>}
  </main>;
