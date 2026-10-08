@@ -22,6 +22,56 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     db.exec('COMMIT');
   }catch(error){db.exec('ROLLBACK');throw error;}
   db.exec(`CREATE TABLE IF NOT EXISTS mobile_agent_nodes (node_id TEXT PRIMARY KEY, platform TEXT NOT NULL, started_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, uptime_seconds INTEGER NOT NULL DEFAULT 0, managed_count INTEGER NOT NULL DEFAULT 0);`);
+  db.exec(`CREATE TABLE IF NOT EXISTS mobile_node_credentials (
+    node_id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, created_at TEXT NOT NULL,
+    revoked_at TEXT
+  );`);
+  // Enrollment credentials are only returned once; store their SHA-256 digests, not plaintext.
+  server.post('/api/v1/mobile/nodes/enroll',async(req,reply)=>{
+    const user=userFor(req);
+    if(!user)return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
+    if(user.role!=='admin')return reply.code(403).send({success:false,error:{code:'ADMIN_ONLY'}});
+    const body=req.body as {nodeId?:string}|undefined;
+    const nodeId=body?.nodeId;
+    if(!nodeId||!(/^[A-Za-z0-9._-]{1,80}$/).test(nodeId)||nodeId==='windows-local-dev')
+      return reply.code(400).send({success:false,error:{code:'INVALID_NODE_ID'}});
+    if(db.prepare('SELECT node_id FROM mobile_node_credentials WHERE node_id=?').get(nodeId))
+      return reply.code(409).send({success:false,error:{code:'NODE_ALREADY_ENROLLED'}});
+    const credential=crypto.randomBytes(32).toString('hex');
+    const digest=crypto.createHash('sha256').update(credential).digest('hex');
+    db.prepare('INSERT INTO mobile_node_credentials(node_id,token_hash,created_at) VALUES(?,?,?)').run(nodeId,digest,new Date().toISOString());
+    return reply.code(201).send({success:true,data:{nodeId,credential}});
+  });
+  server.post('/api/v1/mobile/nodes/:id/heartbeat',async(req,reply)=>{
+    const {id}=req.params as {id:string};
+    if(!(/^[A-Za-z0-9._-]{1,80}$/).test(id))
+      return reply.code(400).send({success:false,error:{code:'INVALID_NODE_ID'}});
+    const bearer=req.headers.authorization;
+    if(!bearer||!/^Bearer [a-f0-9]{64}$/.test(bearer))
+      return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
+    const tokenHash=crypto.createHash('sha256').update(bearer.slice(7)).digest('hex');
+    const record=db.prepare('SELECT token_hash,revoked_at FROM mobile_node_credentials WHERE node_id=?').get(id) as {token_hash:string;revoked_at:string|null}|undefined;
+    if(!record||record.revoked_at||!crypto.timingSafeEqual(Buffer.from(record.token_hash,'hex'),Buffer.from(tokenHash,'hex')))
+      return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
+    const body=req.body as {platform?:string;uptimeSeconds?:number;managedEmulatorCount?:number;startedAt?:string}|undefined;
+    const platform=body?.platform;
+    if(!platform||!(/^[a-z0-9._-]{1,32}$/i).test(platform)||!Number.isSafeInteger(body?.uptimeSeconds)||body!.uptimeSeconds!<0||!Number.isSafeInteger(body?.managedEmulatorCount)||body!.managedEmulatorCount!<0)
+      return reply.code(400).send({success:false,error:{code:'INVALID_HEARTBEAT'}});
+    const now=new Date().toISOString();
+    const startedAt=typeof body?.startedAt==='string'&&!Number.isNaN(Date.parse(body.startedAt))?new Date(body.startedAt).toISOString():now;
+    db.prepare(`INSERT INTO mobile_agent_nodes(node_id,platform,started_at,last_seen_at,uptime_seconds,managed_count) VALUES(?,?,?,?,?,?)
+      ON CONFLICT(node_id) DO UPDATE SET platform=excluded.platform,started_at=excluded.started_at,last_seen_at=excluded.last_seen_at,uptime_seconds=excluded.uptime_seconds,managed_count=excluded.managed_count`)
+      .run(id,platform,startedAt,now,body!.uptimeSeconds!,body!.managedEmulatorCount!);
+    return {success:true,data:{nodeId:id,lastSeenAt:now}};
+  });
+  server.post('/api/v1/mobile/nodes/:id/revoke',async(req,reply)=>{
+    const user=userFor(req);
+    if(!user)return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
+    if(user.role!=='admin')return reply.code(403).send({success:false,error:{code:'ADMIN_ONLY'}});
+    const {id}=req.params as {id:string};
+    const result=db.prepare('UPDATE mobile_node_credentials SET revoked_at=? WHERE node_id=? AND revoked_at IS NULL').run(new Date().toISOString(),id);
+    return {success:true,data:{revoked:result.changes>0}};
+  });
   function expireIdleSessions(){
     const threshold=new Date(Date.now()-2*60*60*1000).toISOString();
     db.prepare("UPDATE mobile_sessions SET status='EXPIRED' WHERE status='READY' AND updated_at < ?").run(threshold);

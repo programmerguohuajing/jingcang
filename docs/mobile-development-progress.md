@@ -181,5 +181,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 保留原有管理员/会话拥有者授权与 READY 状态检查；目前只是错误路由拒绝，未实现真正跨节点请求转发。
 - Control API 类型检查和构建、复合租约 SQLite 专项测试通过；独立开发 Docker 部署回归：Agent 节点登记、已有活动会话心跳、节点未知请求拒绝均 PASS，28088/8088 HTTP 200。
 
+### 2026-10-08 · P1 多节点独立凭证与认证心跳
+- 新增 `mobile_node_credentials` SQLite 凭证表，管理员通过 `POST /api/v1/mobile/nodes/enroll` 为非本地节点领取随机 256 位 Bearer Token，服务端仅保存 SHA-256 摘要，不重复返回凭证；已登记 nodeId 不允许重复领取。
+- 新增 `POST /api/v1/mobile/nodes/:id/heartbeat`，使用节点独立 Bearer Token（时序安全摘要比较）认证节点身份，严格校验节点状态字段后登记/更新心跳；新增管理员 `POST /api/v1/mobile/nodes/:id/revoke` 撤销凭证。
+- 新增 `scripts/test-mobile-node-enrollment.ps1`：使用临时节点测试发放凭证、正确心跳、节点登记、错误凭证 401、撤销、撤销后 401，六项均 PASS，测试不打印凭证明文。原有会话创建、重复租约保护、APK 错误拒绝、截图与会话释放也完成端到端回归。
+- Control API 类型检查、构建、独立 Docker 重建成功。**当前仍不允许新节点调度或访问设备**：注册和心跳验证是基础功能，尚需节点级证书或网络信任保护、真实 Agent 主动连接、心跳服务进程、跨节点路由、失联后安全回收与审计。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。
