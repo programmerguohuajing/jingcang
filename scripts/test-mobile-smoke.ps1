@@ -10,6 +10,10 @@ if (-not $login.success) { throw 'Login failed' }
 $health=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/agent-health') -WebSession $session
 if(-not $health.success -or -not $health.data.nodeId -or $health.data.uptimeSeconds -lt 0){throw 'Mobile Agent node health check failed'}
 Write-Output ('AGENT_NODE_HEALTH=PASS NODE='+$health.data.nodeId+' UPTIME='+$health.data.uptimeSeconds)
+$nodes=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/nodes') -WebSession $session
+$registered=@($nodes.data.nodes | Where-Object {$_.node_id -eq $health.data.nodeId -and $_.online})
+if(-not $nodes.success -or $registered.Count -ne 1){throw 'Node registry did not record recent health observation'}
+Write-Output ('AGENT_NODE_REGISTRY=PASS NODE='+$health.data.nodeId)
 $devices=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/devices') -WebSession $session
 Write-Output ('AUTH=OK AGENT_STATUS='+$devices.data.status+' DEVICES='+@($devices.data.devices).Count)
 foreach($d in @($devices.data.devices)){

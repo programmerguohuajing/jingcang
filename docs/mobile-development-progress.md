@@ -158,5 +158,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 实测开发环境：`AGENT_NODE_HEALTH=PASS NODE=windows-local-dev`，匿名访问返回 HTTP 401，活动会话心跳及原有租约安全检查全部通过。全项目 Lint、26 项既有单元测试、Build 通过，独立 Docker 重建成功，8088 原业务网关 HTTP 200。
 - **这只是单节点健康状态可观测性**。正式的多节点 Agent 注册、服务端心跳失联判定、租约回收和跨节点调度仍未开发完成。
 
+### 2026-10-08 · P1 节点观测登记表与心跳超时状态
+- Control API 添加 `mobile_agent_nodes` SQLite 表，在经过服务端 Token 认证的现有 `/agent-health` 拉取成功后，按 Agent 返回的 nodeId 更新平台、Agent 启动时间、最后观测时间、运行秒数、托管设备数量，不接受浏览器自报节点信息。
+- 新增需登录的 `GET /api/v1/mobile/nodes`，列出已记录节点和最近心跳；最后观测超过 45 秒展示 offline（**仅状态标识，不自动停止或清理设备会话**）。移动设备控制台新增节点登记状态显示。
+- 真实 Docker 验证：`AGENT_NODE_REGISTRY=PASS NODE=windows-local-dev`、`ANONYMOUS_NODES_HTTP=401`、原有移动会话心跳及租约检查 PASS；原 8088 网关 HTTP 200；全项目 Lint、26 项单元测试与构建通过。
+- 此阶段仍是单个已配置 Windows Agent 的轮询观测登记；多节点独立令牌/证书注册、跨节点路由与设备租约回收仍待完整实现。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

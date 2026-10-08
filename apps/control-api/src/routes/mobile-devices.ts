@@ -15,6 +15,7 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
   );
   CREATE UNIQUE INDEX IF NOT EXISTS idx_mobile_device_active
     ON mobile_sessions(device_id) WHERE status='READY';`);
+  db.exec(`CREATE TABLE IF NOT EXISTS mobile_agent_nodes (node_id TEXT PRIMARY KEY, platform TEXT NOT NULL, started_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, uptime_seconds INTEGER NOT NULL DEFAULT 0, managed_count INTEGER NOT NULL DEFAULT 0);`);
   function expireIdleSessions(){
     const threshold=new Date(Date.now()-2*60*60*1000).toISOString();
     db.prepare("UPDATE mobile_sessions SET status='EXPIRED' WHERE status='READY' AND updated_at < ?").run(threshold);
@@ -34,9 +35,19 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     try{
       const response=await agent('/health');
       if(!response.ok)throw new Error('AGENT_UNHEALTHY');
-      const data=await response.json();
-      return {success:true,data:{...data,reachable:true,checkedAt:new Date().toISOString()}};
+      const data=await response.json() as {nodeId?:string;platform?:string;startedAt?:string;uptimeSeconds?:number;managedEmulatorCount?:number};
+      const now=new Date().toISOString();
+      if(typeof data.nodeId==='string'&&/^[a-zA-Z0-9._-]{1,80}$/.test(data.nodeId)){
+        db.prepare(`INSERT INTO mobile_agent_nodes(node_id,platform,started_at,last_seen_at,uptime_seconds,managed_count) VALUES(?,?,?,?,?,?) ON CONFLICT(node_id) DO UPDATE SET platform=excluded.platform,started_at=excluded.started_at,last_seen_at=excluded.last_seen_at,uptime_seconds=excluded.uptime_seconds,managed_count=excluded.managed_count`).run(data.nodeId,String(data.platform||'unknown').slice(0,32),String(data.startedAt||now),now,Math.max(0,Math.floor(data.uptimeSeconds||0)),Math.max(0,Math.floor(data.managedEmulatorCount||0)));
+      }
+      return {success:true,data:{...data,reachable:true,checkedAt:now}};
     }catch{return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
+  });
+  server.get('/api/v1/mobile/nodes',async(req,reply)=>{
+    if(!userFor(req))return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
+    const now=Date.now();
+    const rows=db.prepare('SELECT node_id,platform,started_at,last_seen_at,uptime_seconds,managed_count FROM mobile_agent_nodes ORDER BY last_seen_at DESC').all() as Array<{node_id:string;platform:string;started_at:string;last_seen_at:string;uptime_seconds:number;managed_count:number}>;
+    return {success:true,data:{nodes:rows.map(row=>({...row,online:now-Date.parse(row.last_seen_at)<45000})),staleAfterMs:45000}};
   });
   server.get('/api/v1/mobile/devices',async(req,reply)=>{
     if(!userFor(req)) return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});

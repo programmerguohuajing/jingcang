@@ -14,6 +14,7 @@ export const MobileDevicesPage: React.FC = () => {
  const managedPortBusy=sessions.some(s=>s.device_id==='emulator-5580'&&s.status==='READY');
  const [status,setStatus]=useState('loading');
  const [agentHealth,setAgentHealth]=useState<{nodeId:string;uptimeSeconds:number;managedEmulatorCount:number;automationInProgress:number}|null>(null);
+ const [agentNodes,setAgentNodes]=useState<Array<{node_id:string;platform:string;online:boolean;last_seen_at:string}>>([]);
  const [error,setError]=useState('');
  const [selected,setSelected]=useState<Session|null>(null);
  const [shot,setShot]=useState('');
@@ -29,6 +30,8 @@ export const MobileDevicesPage: React.FC = () => {
  const refresh=useCallback(async()=>{
   try{
    const [r,s,p,c,i,h]=await Promise.all([fetch('/api/v1/mobile/devices'),fetch('/api/v1/mobile/sessions'),fetch('/api/v1/mobile/profiles'),fetch('/api/v1/mobile/capabilities'),fetch('/api/v1/mobile/system-images'),fetch('/api/v1/mobile/agent-health')]);
+   const nodesResponse=await fetch('/api/v1/mobile/nodes');
+   if(nodesResponse.ok){const nodeData=await nodesResponse.json();setAgentNodes(nodeData.data?.nodes||[]);}
    if(h.ok){const data=await h.json();setAgentHealth(data.data||null);}else setAgentHealth(null);
    if(i.ok){const info=await i.json();setImages(info.data?.images||[]);}
    if(c.ok){const data=await c.json();setCapabilities(data.data?.diagnostics||[]);setAppiumReady(Boolean(data.data?.automationReady));}else{setCapabilities([]);setAppiumReady(false);}
@@ -138,6 +141,8 @@ export const MobileDevicesPage: React.FC = () => {
    </section>)}
   </div>
   {devices.length===0&&<p>暂无在线 Android 设备，请检查 Windows Agent、ADB 与 Docker 连通性。</p>}
+  <h2 style={{marginTop:28}}>Agent 节点登记状态</h2>
+  {agentNodes.map(n=><p key={n.node_id}>{n.node_id} · {n.platform} · {n.online?'最近 45 秒有心跳':'心跳已超时'} · 最后检测 {n.last_seen_at}</p>)}
   <h2 style={{marginTop:28}}>自动化环境诊断</h2><p>Appium 工具链：{appiumReady?'已连接（设备兼容性须实测）':'未就绪'}</p>
   <p style={{color:'var(--text-muted)'}}>展示实际检测结果，不代表 Appium 已安装或可以运行测试。</p>
   {capabilities.map(c=><div key={c.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{c.id}</strong> · API {c.apiLevel??'未知'} · {c.abi} · Chrome：{c.chromeInstalled?'已安装':'未安装'} · Appium：{appiumReady?'主机工具链在线':'不可用'}</div>)}
