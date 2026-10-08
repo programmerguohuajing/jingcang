@@ -176,5 +176,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 独立 28088 环境重建成功，旧会话迁移、未知节点拒绝、原有会话心跳与设备保护回归通过，28088/8088 健康检查均 HTTP 200。Control API 独立类型检查通过；完整并行 Lint 曾因 Windows 主机可用虚拟内存仅约 1.5GB 而出现 Node OOM，容器构建和专项 SQLite 测试通过。
 - 注意：当前 Agent 路由仍固定到 windows-local-dev，未开放跨节点租用；独立 Agent 身份认证、设备路由与安全回收仍属 P1 待完成任务。
 
+### 2026-10-08 · P1 会话所有权节点路由保护
+- 在移动会话统一 owner 授权检查中，额外拒绝 node_id 与当前唯一已配置 Agent 节点 `windows-local-dev` 不一致的会话，返回 409 NODE_NOT_ROUTABLE；截图、连续画面、APP、安装、自动化、动作和会话心跳等路径不会误转发到本机 Agent。
+- 保留原有管理员/会话拥有者授权与 READY 状态检查；目前只是错误路由拒绝，未实现真正跨节点请求转发。
+- Control API 类型检查和构建、复合租约 SQLite 专项测试通过；独立开发 Docker 部署回归：Agent 节点登记、已有活动会话心跳、节点未知请求拒绝均 PASS，28088/8088 HTTP 200。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

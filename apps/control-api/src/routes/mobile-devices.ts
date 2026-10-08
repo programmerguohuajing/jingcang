@@ -171,6 +171,8 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     const row=db.prepare('SELECT * FROM mobile_sessions WHERE id=?').get(id) as any;
     if(!row){reply.code(404).send({success:false});return null;}
     if(row.user_id!==user.id && user.role!=='admin'){reply.code(403).send({success:false});return null;}
+    // Never forward a session owned by another node to the configured local Agent.
+    if(row.node_id!=='windows-local-dev'){reply.code(409).send({success:false,error:{code:'NODE_NOT_ROUTABLE'}});return null;}
     return row;
   }
   server.post('/api/v1/mobile/sessions/:id/heartbeat',async(req,reply)=>{
