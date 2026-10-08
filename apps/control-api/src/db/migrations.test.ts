@@ -22,7 +22,7 @@ function freshDb(): DatabaseSync {
 test('runMigrations 创建设备云表并记录版本', () => {
   const db = freshDb();
   const version = runMigrations(db);
-  assert.strictEqual(version, 3);
+  assert.strictEqual(version, 4);
 
   const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as Array<{ name: string }>)
     .map((r) => r.name);
@@ -37,13 +37,14 @@ test('runMigrations 创建设备云表并记录版本', () => {
     'mobile_agent_nodes',
     'mobile_node_credentials',
     'mobile_node_devices',
+    'mobile_session_artifacts',
     'schema_migrations'
   ]) {
     assert.ok(tables.includes(t), `缺少表 ${t}`);
   }
 
   // 幂等：重复执行不应变更版本或报错
-  assert.strictEqual(runMigrations(db), 3);
+  assert.strictEqual(runMigrations(db), 4);
 });
 
 test('mobile_sessions 含 node_id 与 READY 独占索引', () => {
@@ -70,7 +71,7 @@ test('rollbackTo 回滚迁移并重建成功', () => {
   assert.ok(!tables.includes('device_nodes'));
 
   // 可再次前向应用
-  assert.strictEqual(runMigrations(db), 3);
+  assert.strictEqual(runMigrations(db), 4);
 });
 
 test('历史开发库 mobile_sessions 表被幂等补列与 backfill', () => {
@@ -94,7 +95,7 @@ test('历史开发库 mobile_sessions 表被幂等补列与 backfill', () => {
   ).run(new Date().toISOString(), new Date().toISOString());
 
   const version = runMigrations(db);
-  assert.strictEqual(version, 3);
+  assert.strictEqual(version, 4);
 
   const cols = (db.prepare('PRAGMA table_info(mobile_sessions)').all() as Array<{ name: string }>).map(
     (c) => c.name
@@ -124,7 +125,7 @@ test('历史开发库 mobile_sessions 表被幂等补列与 backfill', () => {
   assert.ok(db.prepare('SELECT id FROM mobile_sessions WHERE id=?').get('s1'));
 
   // 幂等：再次执行不改版本
-  assert.strictEqual(runMigrations(db), 3);
+  assert.strictEqual(runMigrations(db), 4);
 });
 
 test('backupDatabase / restoreDatabase 物理备份还原', () => {

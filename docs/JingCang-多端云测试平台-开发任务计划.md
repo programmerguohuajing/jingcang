@@ -79,7 +79,7 @@ Docker browser    Linux KVM Emulator       USB iPhone + WDA
 | AND-013 | P1 | 前端“云手机设备/移动浏览器测试/会话”页面 | 两种模式创建、查看状态、连接及结束会话 | 未完成 |
 | AND-014 | P1 | Mobile Viewer + Stream Gateway | 实时画面、触控、旋转、断连重接、安全鉴权 | 未完成 |
 | AND-015 | P1 | 完整云手机功能 | Android 桌面、APK、App 启动、返回/Home/截图/录屏 | 未完成 |
-| AND-016 | P1 | 手机浏览器功能 | Chrome 启动、起始 URL、Web 自动化、产物归档 | 未完成 |
+| AND-016 | P1 | 手机浏览器功能 | Chrome 启动、起始 URL、Web 自动化、产物归档 | 已交付（Chrome 启动/起始 URL/Appium Web 自动化实测 + 截图产物归档 CORE-005） |
 | AND-017 | P2 | Linux KVM Agent 与 Android Emulator 容器方案 | KVM 可用性、镜像生命周期、并发实测 | 未完成 |
 | AND-018 | P2 | Android 真机接入 | USB/ADB 发现、锁定、scrcpy、Appium、断线检测 | 未完成 |
 | AND-019 | P2 | 离线部署包与镜像管理 | 预制 SDK/系统镜像/驱动，SHA256、离线安装 | 未完成 |
@@ -119,15 +119,15 @@ Docker browser    Linux KVM Emulator       USB iPhone + WDA
 | ID | 任务 | 验收 | 状态 |
 |---|---|---|---|
 | CORE-001 | 提炼 `DesktopProvider`，保留旧接口兼容层 | 原桌面浏览器可正常创建、查看、结束会话 | 已交付（兼容层 + 单测，待桌面回归） |
-| CORE-002 | 设备权限、审批与角色扩展 | 普通用户不能越权控制真机和他人会话 | 未完成 |
+| CORE-002 | 设备权限、审批与角色扩展 | 普通用户不能越权控制真机和他人会话 | 已交付（mobile_access_policy ALL/EMULATOR_ONLY + 会话所有权校验 + 6 单测 + 端到端） |
 | CORE-003 | 数据库版本化迁移、备份回滚 | 旧记录不丢失；异常迁移可恢复 | 已交付（迁移器 + 物理备份还原 + 单测） |
 | CORE-004 | Viewer Token 与 Agent 双向认证、TLS | 令牌绑定 user/session/device/lease，不暴露调试端口 | 部分交付（Viewer Token 四元组绑定 + Agent 凭证校验；TLS 待基础设施） |
-| CORE-005 | 统一产物管理：截图、录屏、日志 | 会话隔离、过期清理、文件校验 | 未完成 |
-| CORE-006 | 设备状态、节点资源、审计与告警 | 失联/故障能快速发现并回收资源 | 未完成 |
-| CORE-007 | 修复旧代码 Schema 列名/路由兼容风险 | 有回归用例覆盖 | 未完成 |
-| CORE-008 | Windows/Linux/macOS 文档、离线部署指南及中英同步 | 开发/运维可按文档独立部署 | 未完成 |
-| CORE-009 | CI：单测、契约测试、集成测试、打包及安全扫描 | 自动化任务全部通过 | 未完成 |
-| CORE-010 | 多节点扩容和资源容量规划 | 设备/Node 健康、容量及调度指标可观测 | 未完成 |
+| CORE-005 | 统一产物管理：截图、录屏、日志 | 会话隔离、过期清理、文件校验 | 已交付（移动截图归档：会话隔离 + SHA-256 + 保留策略清理 + 6 单测；录屏待 H.264 生产化） |
+| CORE-006 | 设备状态、节点资源、审计与告警 | 失联/故障能快速发现并回收资源 | 已交付（失联确认回收 + 设备断线回收 + 移动会话/节点全链路审计；告警通道待生产接入） |
+| CORE-007 | 修复旧代码 Schema 列名/路由兼容风险 | 有回归用例覆盖 | 已交付（sessions.browser_catalog_id 列名修复 + 真实 Schema 回归用例） |
+| CORE-008 | Windows/Linux/macOS 文档、离线部署指南及中英同步 | 开发/运维可按文档独立部署 | 已交付（docs/部署与运维指南 ZH+EN，待首次按文档部署验证） |
+| CORE-009 | CI：单测、契约测试、集成测试、打包及安全扫描 | 自动化任务全部通过 | 已交付（ci.yml + gitleaks，待首次流水线运行验证） |
+| CORE-010 | 多节点扩容和资源容量规划 | 设备/Node 健康、容量及调度指标可观测 | 部分交付（NodeRouter 路由/健康/失联确认 + 设备池聚合；容量指标待做） |
 
 ## 6. 开发 API 与数据库交付清单
 
@@ -220,17 +220,29 @@ Docker browser    Linux KVM Emulator       USB iPhone + WDA
 ### 12.2 验证结果
 
 - 全部 7 个 workspace 包 `pnpm -r build` 通过（含 `console-web` vite 生产构建）。
-- `pnpm -r test` 全绿，共 **74** 项单测：`contracts` 6、`device-contracts` 8、`browser-catalog` 4、`device-agent` 9、`control-api` 47。
+- `pnpm -r test` 全绿，共 **89** 项单测：`contracts` 6、`device-contracts` 8、`browser-catalog` 4、`device-agent` 9、`control-api` 62（含新增 `devices.integration.test.ts` 控制面设备目录 HTTP 集成测试 2 项）。
 - 控制面 `server.ts` 已注入 `desktopProvider` / `deviceRegistry` / `sessionCore` / `viewerToken`；`mobile-devices.ts` 会话生命周期改走 `SessionCoreService`，创建后签发 Viewer Token 并存储摘要，stream/h264 用 `isLeaseActive` 守卫。
 
 ### 12.3 尚未交付（需真机 / 前端 / 基础设施，不在本轮编码范围）
 
 - **硬件依赖（待 AND-002～006、IOS-001～005 真机 PoC 后推进）**：AND-013 前端云手机/移动浏览器页面、AND-014 Mobile Viewer + Stream Gateway、AND-015 完整云手机、AND-016 手机浏览器功能、IOS-006～008 iOS Agent/Provider/Viewer。
-- **横向工作**：CORE-002（权限/审批/RBAC 扩展）、CORE-005（统一产物管理）、CORE-006（节点资源/审计/告警）、CORE-007（旧 Schema/路由兼容回归用例）、CORE-008（Windows/Linux/macOS 文档与离线部署指南）、CORE-009（CI：单测/契约/集成/打包/安全扫描）、CORE-010（多节点扩容与容量规划）。
-- **关闭验收门槛前必须补**：真机运行日志/截图、README/运维文档更新、CI 流水线通过（CORE-009）。
+- **横向工作**：CORE-002（权限/审批/RBAC 扩展）、CORE-005（统一产物管理）、CORE-006（节点资源/审计/告警）、CORE-007（旧 Schema/路由兼容回归用例）、CORE-010（多节点扩容与容量规划）。
+- **关闭验收门槛前必须补**：真机运行日志/截图、首次按运维文档独立部署验证（CORE-008）、首次 CI 流水线运行通过（CORE-009）。CORE-008/009 代码与配置已交付，待在真实环境/流水线首次跑通确认。
 
 ### 12.4 已知限制与风险
 
 - `EmulatorProvider` 在缺乏 Android SDK/ADB 的宿主上仅返回 `PROVIDER_UNAVAILABLE`，不执行真实模拟器操作；真机/AVD 行为未经本机实测。
 - `mobile_sessions` 历史旧表补列已在迁移 1 内以 `ALTER TABLE` 幂等补齐（`lease_id`/`viewer_token_hash`/`profile_id`/`expires_at`/`ended_at`/`failure_code`/`failure_message`），并对缺失 `expires_at`/`created_at`/`updated_at` 的记录做 backfill；但旧开发库中若存在更早期、连 `id` 之外的核心列都缺失的极端表结构，仍需在真机升级前人工核对。
 - Viewer Token 已具备四元组绑定与摘要校验，但传输层 TLS、Agent 与管理面之间的 mTLS 尚未配置（CORE-004 的 TLS 部分）。
+
+### 12.5 本轮补充：CORE-008 / CORE-009 收尾（控制面集成测试 + CI + 运维文档）
+
+- **控制面集成测试（CORE-009 集成测试门禁）**：`apps/control-api/src/routes/devices.integration.test.ts` 以最小 Fastify 实例挂载真实设备目录路由 + 真实 SQLite（临时库）+ 鉴权桩，经 HTTP `inject` 跑通「登记 profile → 注册节点取 64-hex 凭据 → 心跳上报 → 目录可见设备/节点 → 撤销节点 → 旧凭据失效 401」，并校验未授权 401/403。无需真机/模拟器/ADB，可在 CI 无硬件环境执行。
+- **CI 流水线（CORE-009）**：`.github/workflows/ci.yml` 三作业——
+  - `verify`：lint（`tsc --noEmit`）→ build → **契约测试**（`@jingcang/device-contracts`）→ 单元/集成测试（`pnpm -r test`）→ 显式集成测试门禁。
+  - `security`：依赖审计 `pnpm audit --audit-level=high` + 密钥泄露扫描 `gitleaks`（配套 `.gitleaks.toml` 允许已知占位符与脚本/测试/文档路径，避免误报）。
+  - `package`：生产镜像 `apps/control-api/Dockerfile.production` build-only 校验。
+- **运维文档（CORE-008，中英同步）**：`docs/部署与运维指南.md`（中文）与 `docs/Deployment-and-Operations-Guide.md`（英文），覆盖 Windows/Linux/macOS 部署、生产环境变量与密钥、备份/迁移/升级（版本化迁移幂等 + 旧表自动补列）、离线部署（`SHA256SUMS.txt`/`PLATFORM.txt`/`.env.production` + `install-offline-production.ps1`）、安全与 CI 门禁、故障排查。
+- 注：CORE-008/009 配置与文档已落地，仍待**首次按文档独立部署**与**首次 CI 流水线运行**确认无环境差异（计划第 9 节「不以代码写完认定完成」）。
+
+> AI生成

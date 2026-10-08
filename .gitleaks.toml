@@ -1,0 +1,36 @@
+# JingCang gitleaks 配置
+#
+# 默认规则集之上叠加允许清单，避免对"运行时生成的凭据"与"已知占位符"
+# 产生误报。真实密钥均由 .env 在部署时提供（git 忽略），不应出现在仓库中。
+
+title = "JingCang gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "允许已知占位符、运行时生成的凭据、以及文档/测试/示例/脚本路径"
+regexes = [
+  # bootstrap / install 脚本中生成并仅打印到本地的占位与随机令牌前缀
+  '''change-me-''',
+  '''jc-admin-''',
+  '''MOCK_TOKEN''',
+  '''New-SecureToken''',
+  # 测试桩 64-hex 凭据（如 '0'*64），仅用于单元/集成测试
+  '''0'\*64''',
+]
+paths = [
+  # 部署示例与环境文件（仅含占位符，不含真实密钥）
+  '''\.env.*''',
+  # 运维/部署/离线脚本：凭据在运行时从 .env 读取或现场生成，不存在硬编码真实密钥
+  '''scripts/.*\.(ps1|mjs)''',
+  # 测试与单元测试夹具
+  '''\.test\.(ts|js)$''',
+  '''\.spec\.(ts|js)$''',
+  # 文档与示例（无秘密）
+  '''docs/.*''',
+  '''\.md$''',
+  '''\.github/.*''',
+  # 离线部署物料目录（SHA256SUMS / PLATFORM 等非密钥）
+  '''deploy/offline/.*''',
+]
