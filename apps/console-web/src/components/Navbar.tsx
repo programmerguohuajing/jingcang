@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
-import { Monitor, Compass, ShieldAlert, LogOut } from 'lucide-react';
+import { Monitor, Compass, ShieldAlert, LogOut, Smartphone } from 'lucide-react';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -63,6 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
             浏览器舱位
           </Link>
 
+          <Link to="/mobile" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '6px', textDecoration: 'none', color: location.pathname === '/mobile' ? 'var(--primary-color, #0284c7)' : 'var(--text-muted, #94a3b8)', backgroundColor: location.pathname === '/mobile' ? 'var(--bg-subtle, #f1f5f9)' : 'transparent', fontWeight: 500 }}><Smartphone size={18}/>移动设备</Link>
           <Link
             to="/sessions"
             style={{

@@ -3,7 +3,9 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const exec = promisify(execFile);
-const host = '127.0.0.1';
+const host = process.env.JINGCANG_ANDROID_AGENT_HOST || '127.0.0.1';
+const agentToken = process.env.JINGCANG_MOBILE_AGENT_TOKEN || '';
+if (host !== '127.0.0.1' && agentToken.length < 32) throw new Error('A strong agent token is required for remote binding');
 const port = Number(process.env.JINGCANG_ANDROID_AGENT_PORT || 19876);
 const adb = process.env.JINGCANG_ADB_PATH || 'D:\\Program Files\\platform-tools\\adb.exe';
 async function adbText(args) {
@@ -33,6 +35,9 @@ async function getDevices() {
 }
 const server = http.createServer(async (req, res) => {
   res.setHeader('Content-Type','application/json; charset=utf-8');
+  if (agentToken && req.headers.authorization !== `Bearer ${agentToken}`) {
+    res.writeHead(401); return res.end(JSON.stringify({ error: 'UNAUTHORIZED' }));
+  }
   if (req.method !== 'GET' || !['/health','/devices'].includes(req.url)) {
     res.writeHead(404); return res.end(JSON.stringify({ error:'NOT_FOUND' }));
   }

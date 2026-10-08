@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage';
 import { BrowserCatalogPage } from './pages/BrowserCatalogPage';
 import { ViewerPage } from './pages/ViewerPage';
 import { SessionListPage } from './pages/SessionListPage';
+import { MobileDevicesPage } from './pages/MobileDevicesPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { api } from './api/client';
 import { ThemeProvider } from './context/ThemeContext';
@@ -41,6 +42,7 @@ export const App: React.FC = () => {
           path="/viewer/:sessionId"
           element={user ? <ViewerPage /> : <Navigate to="/login" replace />}
         />
+        <Route path="/mobile" element={user ? <MobileDevicesPage /> : <Navigate to="/login" replace />} />
         <Route
           path="/sessions"
           element={user ? <SessionListPage /> : <Navigate to="/login" replace />}

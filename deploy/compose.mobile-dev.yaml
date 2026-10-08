@@ -17,6 +17,7 @@ services:
       dockerfile: apps/control-api/Dockerfile
     env_file:
       - ../.env
+      - ./.env.mobile-agent
     environment:
       JINGCANG_ROOT: /app
       JINGCANG_CONTAINERIZED: "true"
@@ -25,6 +26,7 @@ services:
       JINGCANG_GRID_URL: "http://selenium-docker:4444"
       JINGCANG_SQLITE_JOURNAL_MODE: "DELETE"
       JINGCANG_TRUST_PROXY: "true"
+      JINGCANG_MOBILE_AGENT_URL: "http://host.docker.internal:19879"
     volumes:
       - mobile_dev_db:/app/data/db
       - mobile_dev_artifacts:/app/data/artifacts

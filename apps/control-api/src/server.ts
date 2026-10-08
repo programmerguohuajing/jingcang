@@ -23,6 +23,7 @@ import { registerAdminRoutes } from './routes/admin.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerViewerRoutes } from './routes/viewer.js';
 import { registerArtifactRoutes } from './routes/artifacts.js';
+import { registerMobileDeviceRoutes } from './routes/mobile-devices.js';
 
 async function main() {
   const config = loadConfig();
@@ -93,6 +94,7 @@ async function main() {
   registerHealthRoutes(server, config);
   registerViewerRoutes(server, viewerGateway, orchestrator);
   registerArtifactRoutes(server, config, authService);
+  registerMobileDeviceRoutes(server, authService);
 
   try {
     await server.listen({ port: config.port, host: config.bindHost });
