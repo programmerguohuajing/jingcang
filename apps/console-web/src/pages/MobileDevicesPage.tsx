@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {H264Canvas} from '../components/H264Canvas';
 type Device = {id:string;kind:string;state:string;model?:string;osVersion?:string;booted?:boolean;available?:boolean;leased?:boolean};
 type Session = {id:string;device_id:string;mode:string;status:string};
 type Capability = {id:string;apiLevel:number|null;abi:string;chromeInstalled:boolean;securityPatch:string;appiumStatus:string};
@@ -20,6 +21,8 @@ export const MobileDevicesPage: React.FC = () => {
  const [selected,setSelected]=useState<Session|null>(null);
  const [shot,setShot]=useState('');
  const [streaming,setStreaming]=useState(false);
+ const [h264,setH264]=useState(false);
+ const [h264Epoch,setH264Epoch]=useState(0);
  const [streamEpoch,setStreamEpoch]=useState(0);
  const [startUrl,setStartUrl]=useState('https://example.com');
  const [typed,setTyped]=useState('');
@@ -51,7 +54,7 @@ export const MobileDevicesPage: React.FC = () => {
   const blob=await r.blob();setShot(old=>{if(old)URL.revokeObjectURL(old);return URL.createObjectURL(blob);});
  },[]);
  useEffect(()=>{void refresh();const i=setInterval(()=>void refresh(),10000);return()=>clearInterval(i)},[refresh]);
- useEffect(()=>{if(!selected||streaming)return;void screenshot(selected.id).catch(e=>setError(String(e)));const i=setInterval(()=>void screenshot(selected.id).catch(()=>{}),1800);return()=>clearInterval(i)},[selected,screenshot,streaming]);
+ useEffect(()=>{if(!selected||streaming||h264)return;void screenshot(selected.id).catch(e=>setError(String(e)));const i=setInterval(()=>void screenshot(selected.id).catch(()=>{}),1800);return()=>clearInterval(i)},[selected,screenshot,streaming,h264]);
  useEffect(()=>{if(!selected||!streaming)return;const i=setInterval(()=>setStreamEpoch(x=>x+1),90000);return()=>clearInterval(i)},[selected,streaming]);
  useEffect(()=>{
   if(!selected||selected.status!=='READY')return;
@@ -162,14 +165,16 @@ export const MobileDevicesPage: React.FC = () => {
   <h2 style={{marginTop:28}}>移动会话</h2>
   {sessions.filter(s=>s.status==='READY').map(s=><div key={s.id} style={{marginBottom:12,display:'flex',gap:12,alignItems:'center'}}>
    <span>{s.device_id} · {s.mode==='phone'?'完整云手机':'浏览器模式'}</span>
-   <button className="btn-secondary" onClick={()=>setSelected(s)}>连接画面</button><button className="btn-secondary" onClick={()=>void stop(s)}>结束</button>
+   <button className="btn-secondary" onClick={()=>{setSelected(s);setH264(true);setStreaming(false);}}>连接画面</button><button className="btn-secondary" onClick={()=>void stop(s)}>结束</button>
   </div>)}
   {selected&&<section style={{marginTop:24,border:'1px solid var(--nav-border)',borderRadius:12,padding:20}}>
    <h3>远程控制：{selected.device_id}</h3>
-   <p style={{fontSize:12}}>支持 MJPEG 连续截图或定时截图模式；点击、滑动、导航按键与简单英文输入。MJPEG 不是 H.264 视频。</p>
-   <button className="btn-secondary" onClick={()=>{setStreaming(x=>!x);setStreamEpoch(x=>x+1);}}>{streaming?'切换定时截图':'开启连续画面（MJPEG）'}</button>
+   <p style={{fontSize:12}}>优先使用 H.264/WebCodecs 低延迟视频；设备编码或浏览器解码不可用时可以使用 MJPEG 或定时截图。</p>
+   <button className="btn-secondary" onClick={()=>{setH264(true);setStreaming(false);}}>开启 H.264 视频</button>
+   <button className="btn-secondary" onClick={()=>{setH264(false);setStreaming(x=>!x);setStreamEpoch(x=>x+1);}}>{streaming?'切换定时截图':'开启连续画面（MJPEG）'}</button>
    {selected.mode==='browser'&&<div style={{marginBottom:12}}><button className="btn-secondary" disabled={automating||!appiumReady} onClick={()=>void runAutomation()}>{automating?'Appium 自动化执行中…':'执行 Chrome 示例自动化'}</button> {automationResult&&<span role="status" style={{color:'#059669'}}>{automationResult}</span>}<p style={{fontSize:12}}>自动运行预设 https://example.com/ 页面标题检查，使用设备的独立 WebDriver 会话。</p></div>}
-   {(shot||streaming)&&<img src={streaming?'/api/v1/mobile/sessions/'+encodeURIComponent(selected.id)+'/stream?v='+streamEpoch:shot} onError={()=>{if(streaming){setStreaming(false);setError('连续画面连接已断开，已恢复定时截图');}}} alt="Android 设备画面" style={{display:'block',maxWidth:'100%',maxHeight:650,cursor:'crosshair',margin:'auto',touchAction:'none'}}
+   {h264&&<H264Canvas key={selected.id+':'+h264Epoch} sessionId={selected.id} onEnded={()=>{setTimeout(()=>setH264Epoch(x=>x+1),1000);}} onFailure={()=>{setH264(false);setStreaming(true);setError('H.264 视频不可用，已自动切换 MJPEG');}} onGesture={(x1,y1,x2,y2,duration)=>{if(Math.hypot(x2-x1,y2-y1)<15)void action({type:'tap',x:x2,y:y2});else void action({type:'swipe',x1,y1,x2,y2,duration:Math.max(100,Math.min(2000,duration))});}}/>}
+   {!h264&&(shot||streaming)&&<img src={streaming?'/api/v1/mobile/sessions/'+encodeURIComponent(selected.id)+'/stream?v='+streamEpoch:shot} onError={()=>{if(streaming){setStreaming(false);setError('连续画面连接已断开，已恢复定时截图');}}} alt="Android 设备画面" style={{display:'block',maxWidth:'100%',maxHeight:650,cursor:'crosshair',margin:'auto',touchAction:'none'}}
     onPointerDown={e=>{const b=e.currentTarget.getBoundingClientRect();pointerStart.current={x:Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y:Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight),time:Date.now()};e.currentTarget.setPointerCapture(e.pointerId);}}
     onPointerUp={e=>{const start=pointerStart.current;pointerStart.current=null;if(!start)return;const b=e.currentTarget.getBoundingClientRect();const x=Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y=Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight);if(Math.hypot(x-start.x,y-start.y)<15)void action({type:'tap',x,y});else void action({type:'swipe',x1:start.x,y1:start.y,x2:x,y2:y,duration:Math.max(100,Math.min(2000,Date.now()-start.time))});}}
     onPointerCancel={()=>{pointerStart.current=null;}}/>}

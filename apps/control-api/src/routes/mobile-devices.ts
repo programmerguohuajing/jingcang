@@ -303,6 +303,37 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     })();
     return reply;
   });
+  server.get('/api/v1/mobile/sessions/:id/h264',async(req,reply)=>{
+    const row=await owner(req,reply);if(!row)return;
+    if(row.status!=='READY')return reply.code(409).send({success:false,error:{code:'SESSION_NOT_READY'}});
+    if(!agentUrl||!agentToken)return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});
+    const controller=new AbortController();
+    let upstream:Response;
+    try{
+      upstream=await fetch(new URL('/devices/'+encodeURIComponent(row.device_id)+'/h264',agentUrl),{
+        headers:{Authorization:'Bearer '+agentToken},signal:controller.signal
+      });
+      if(!upstream.ok||!upstream.body){controller.abort();return reply.code(503).send({success:false,error:{code:'H264_UNAVAILABLE'}});}
+    }catch{controller.abort();return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
+    reply.hijack();
+    const raw=reply.raw;
+    const active=()=>{
+      const record=db.prepare('SELECT status,node_id,device_id,user_id FROM mobile_sessions WHERE id=?').get(row.id) as {status:string;node_id:string;device_id:string;user_id:string}|undefined;
+      return record?.status==='READY'&&record.node_id===row.node_id&&record.device_id===row.device_id&&record.user_id===row.user_id;
+    };
+    raw.writeHead(200,{'Content-Type':'video/h264','Cache-Control':'no-store','X-Accel-Buffering':'no','X-Content-Type-Options':'nosniff'});
+    raw.on('close',()=>controller.abort());
+    const leaseMonitor=setInterval(()=>{if(!active())controller.abort();},1000);
+    const reader=upstream.body.getReader();
+    try{
+      while(!raw.destroyed&&active()){
+        const item=await reader.read();
+        if(item.done||!active())break;
+        if(!raw.write(Buffer.from(item.value)))await new Promise<void>(resolve=>{raw.once('drain',resolve);raw.once('close',resolve);});
+      }
+    }catch{/* Client disconnected, revoked lease or Agent stopped. */}
+    finally{clearInterval(leaseMonitor);controller.abort();void reader.cancel().catch(()=>{});if(!raw.destroyed)raw.end();}
+  });
   server.get('/api/v1/mobile/sessions/:id/screenshot',async(req,reply)=>{
     const row=await owner(req,reply);if(!row)return;
     if(row.status!=='READY')return reply.code(409).send({success:false});

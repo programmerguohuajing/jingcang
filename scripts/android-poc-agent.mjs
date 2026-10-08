@@ -15,6 +15,7 @@ const agentStartedAt = new Date().toISOString();
 const agentNodeId = process.env.JINGCANG_ANDROID_NODE_ID || 'windows-local-dev';
 let lifecycleBusy = false;
 const automationBusy = new Set();
+const videoBusy = new Set();
 async function managedStatus(name){
   const entry=managedAvds.get(name);
   if(!entry)return null;
@@ -213,11 +214,27 @@ http.createServer(async(req,res)=>{
       return send(res,202,{success:true,status:'starting',serial:MANAGED_SERIAL});
       }finally{lifecycleBusy=false;}
     }
-    const match=/^\/devices\/([^/]+)\/(screenshot|action|apps|install|automation)$/.exec(url.pathname);
+    const match=/^\/devices\/([^/]+)\/(screenshot|h264|action|apps|install|automation)$/.exec(url.pathname);
     if (!match || !validSerial(match[1])) return send(res,404,{error:'NOT_FOUND'});
     const serial=match[1];
     const found=(await devices()).find(d=>d.id===serial && d.state==='device');
     if (!found) return send(res,404,{error:'DEVICE_OFFLINE'});
+    if(req.method==='GET' && match[2]==='h264'){
+      if(videoBusy.has(serial))return send(res,409,{error:'VIDEO_ALREADY_RUNNING'});
+      videoBusy.add(serial);
+      // Android MediaCodec supplies Annex-B H.264 directly, with no host-side encoder.
+      const child=spawn(adb,['-s',serial,'exec-out','screenrecord','--output-format=h264','--time-limit','60','-'],{windowsHide:true,stdio:['ignore','pipe','pipe']});
+      let closed=false;
+      const stop=()=>{if(closed)return;closed=true;videoBusy.delete(serial);child.kill();};
+      res.writeHead(200,{'Content-Type':'video/h264','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+      res.on('close',stop);
+      child.stdout.on('data',chunk=>{if(!closed&&!res.write(chunk))child.stdout.pause();});
+      res.on('drain',()=>child.stdout.resume());
+      child.stderr.resume();
+      child.on('error',()=>{stop();if(!res.destroyed)res.destroy();});
+      child.on('close',()=>{stop();if(!res.writableEnded)res.end();});
+      return;
+    }
     if(req.method==='POST' && match[2]==='automation'){
       if(automationBusy.has(serial))return send(res,409,{error:'AUTOMATION_ALREADY_RUNNING'});
       automationBusy.add(serial);

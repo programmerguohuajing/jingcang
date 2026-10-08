@@ -210,5 +210,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 测试节点模拟上报与查询真实 Docker 接口 `REMOTE_NODE_DEVICE_DISCOVERY=PASS`；节点凭证校验/撤销、移动设备租约、APK 和截图及浏览器会话回归通过；Control API 类型检查与构建、4 项 Agent 心跳测试通过，开发 Docker 已重建。
 - Android14 冷启动按用户要求暂时跳过，不继续调整主机内存；剩余 P0 视频链路、P1 可信远程路由/失联回收、P2 Linux KVM/真机与离线部署继续推进。
 
+### 2026-10-08 · P0 H.264 低延迟视频传输与 WebCodecs 播放器
+- Windows Android Agent 增加带 Token 认证的 `GET /devices/:serial/h264`，调用 Android 原生 `screenrecord --output-format=h264` 输出 H.264 Annex-B 字节流（无宿主 FFmpeg/scrcpy 依赖），每个设备限制一个编码进程，客户端关闭时释放进程。
+- Control API 新增需会话授权的 `GET /api/v1/mobile/sessions/:id/h264`，代理 H.264 视频到浏览器；按 1 秒周期复核会话 READY 和节点归属，释放会话时中断上游，禁用缓冲。避免转发其他 Agent 节点的会话。
+- Web 控制台新增 `H264Canvas` WebCodecs 解码播放器，解析 Annex-B SPS/PPS/IDR 并自动识别 AVC Profile，Canvas 显示画面并保留点按/滑动。首次连接优先 H.264，在 WebCodecs 不可用、未解出画面或流结束时回退 MJPEG；静态画面空闲时提交末尾 NAL，避免等待后续帧。
+- 已验证真实 Android 设备 `H264_STREAM_HTTP=200`、`Content-Type=video/h264`、SPS/PPS/IDR NAL，`H264_ANNEXB_REAL_DEVICE=PASS`；用采集到的真实 H.264 样本在本机 Chrome 无头 WebCodecs 成功解码 `H264_BROWSER_DECODE=PASS FRAMES=1 CODEC=avc1.42C029`；现有 26 项单测、前后端 Lint/Build 均通过。
+- Android screenrecord 单次输出受 60 秒限制，已为正常流结束增加自动重连；实际解码故障和不支持 WebCodecs 的浏览器自动回退 MJPEG。控制台点击“连接画面”时默认尝试 H.264。
+- 端到端 UI 已在真实设备会话和本机 Chrome 无头浏览器通过：`H264_UI_SESSION_SELECTED=PASS`、`H264_UI_DECODED_CANVAS=PASS 1080x1920`，本次从点击连接到首帧渲染 1427ms（包含接口与浏览器解码，不等于持续视频单向延迟）。新增 `scripts/test-mobile-h264-ui.mjs`，默认仅在设备空闲时创建并在退出时清理自己的测试会话；复用外部明确指定的测试会话时不主动释放。
+- 限制：链路为 H.264 over HTTP + WebCodecs，并非 WebRTC；实时连续多帧的吞吐、长期稳定性、网络抖动/断链恢复和生产级端到端时延仍待正式压力测试。不可宣称 WebRTC 或跨浏览器全部完成。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。
