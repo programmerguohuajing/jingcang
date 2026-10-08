@@ -1,0 +1,54 @@
+name: jingcang-mobile-dev
+services:
+  gateway:
+    image: nginx:alpine
+    ports:
+      - "127.0.0.1:28088:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - control-api
+    networks:
+      - frontend
+  control-api:
+    image: jingcang/mobile-dev-api:local
+    build:
+      context: ..
+      dockerfile: apps/control-api/Dockerfile
+    env_file:
+      - ../.env
+    environment:
+      JINGCANG_ROOT: /app
+      JINGCANG_CONTAINERIZED: "true"
+      JINGCANG_PORT: "8088"
+      JINGCANG_BIND_HOST: "0.0.0.0"
+      JINGCANG_GRID_URL: "http://selenium-docker:4444"
+      JINGCANG_SQLITE_JOURNAL_MODE: "DELETE"
+      JINGCANG_TRUST_PROXY: "true"
+    volumes:
+      - mobile_dev_db:/app/data/db
+      - mobile_dev_artifacts:/app/data/artifacts
+      - mobile_dev_logs:/app/data/logs
+      - ./selenium/browser-catalog.yaml:/app/deploy/selenium/browser-catalog.yaml:ro
+    depends_on:
+      - selenium-docker
+    networks:
+      - frontend
+      - backend
+  selenium-docker:
+    image: selenium/standalone-docker:4.48.0-20260905
+    environment:
+      SE_NODE_DOCKER_CONFIG_FILENAME: docker.toml
+      SE_NODE_GRID_URL: http://selenium-docker:4444
+    volumes:
+      - ./selenium/docker.toml:/opt/selenium/docker.toml:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - backend
+networks:
+  frontend:
+  backend:
+volumes:
+  mobile_dev_db:
+  mobile_dev_artifacts:
+  mobile_dev_logs:
