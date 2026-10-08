@@ -16,6 +16,8 @@ export const MobileDevicesPage: React.FC = () => {
  const [error,setError]=useState('');
  const [selected,setSelected]=useState<Session|null>(null);
  const [shot,setShot]=useState('');
+ const [streaming,setStreaming]=useState(false);
+ const [streamEpoch,setStreamEpoch]=useState(0);
  const [startUrl,setStartUrl]=useState('https://example.com');
  const [typed,setTyped]=useState('');
  const [apps,setApps]=useState<string[]>([]);
@@ -41,7 +43,8 @@ export const MobileDevicesPage: React.FC = () => {
   const blob=await r.blob();setShot(old=>{if(old)URL.revokeObjectURL(old);return URL.createObjectURL(blob);});
  },[]);
  useEffect(()=>{void refresh();const i=setInterval(()=>void refresh(),10000);return()=>clearInterval(i)},[refresh]);
- useEffect(()=>{if(!selected)return;void screenshot(selected.id).catch(e=>setError(String(e)));const i=setInterval(()=>void screenshot(selected.id).catch(()=>{}),1800);return()=>clearInterval(i)},[selected,screenshot]);
+ useEffect(()=>{if(!selected||streaming)return;void screenshot(selected.id).catch(e=>setError(String(e)));const i=setInterval(()=>void screenshot(selected.id).catch(()=>{}),1800);return()=>clearInterval(i)},[selected,screenshot,streaming]);
+ useEffect(()=>{if(!selected||!streaming)return;const i=setInterval(()=>setStreamEpoch(x=>x+1),90000);return()=>clearInterval(i)},[selected,streaming]);
  async function create(deviceId:string,mode:'phone'|'browser'){
   const r=await fetch('/api/v1/mobile/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId,mode,startUrl})});
   const json=await r.json();
@@ -137,9 +140,10 @@ export const MobileDevicesPage: React.FC = () => {
   </div>)}
   {selected&&<section style={{marginTop:24,border:'1px solid var(--nav-border)',borderRadius:12,padding:20}}>
    <h3>远程控制：{selected.device_id}</h3>
-   <p style={{fontSize:12}}>画面定时截图更新；支持点击、滑动、导航按键与简单英文输入（PoC 模式，非实时视频）。</p>
+   <p style={{fontSize:12}}>支持 MJPEG 连续截图或定时截图模式；点击、滑动、导航按键与简单英文输入。MJPEG 不是 H.264 视频。</p>
+   <button className="btn-secondary" onClick={()=>{setStreaming(x=>!x);setStreamEpoch(x=>x+1);}}>{streaming?'切换定时截图':'开启连续画面（MJPEG）'}</button>
    {selected.mode==='browser'&&<div style={{marginBottom:12}}><button className="btn-secondary" disabled={automating||!appiumReady} onClick={()=>void runAutomation()}>{automating?'Appium 自动化执行中…':'执行 Chrome 示例自动化'}</button> {automationResult&&<span role="status" style={{color:'#059669'}}>{automationResult}</span>}<p style={{fontSize:12}}>自动运行预设 https://example.com/ 页面标题检查，使用设备的独立 WebDriver 会话。</p></div>}
-   {shot&&<img src={shot} alt="Android 设备画面" style={{display:'block',maxWidth:'100%',maxHeight:650,cursor:'crosshair',margin:'auto',touchAction:'none'}}
+   {(shot||streaming)&&<img src={streaming?'/api/v1/mobile/sessions/'+encodeURIComponent(selected.id)+'/stream?v='+streamEpoch:shot} onError={()=>{if(streaming){setStreaming(false);setError('连续画面连接已断开，已恢复定时截图');}}} alt="Android 设备画面" style={{display:'block',maxWidth:'100%',maxHeight:650,cursor:'crosshair',margin:'auto',touchAction:'none'}}
     onPointerDown={e=>{const b=e.currentTarget.getBoundingClientRect();pointerStart.current={x:Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y:Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight),time:Date.now()};e.currentTarget.setPointerCapture(e.pointerId);}}
     onPointerUp={e=>{const start=pointerStart.current;pointerStart.current=null;if(!start)return;const b=e.currentTarget.getBoundingClientRect();const x=Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y=Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight);if(Math.hypot(x-start.x,y-start.y)<15)void action({type:'tap',x,y});else void action({type:'swipe',x1:start.x,y1:start.y,x2:x,y2:y,duration:Math.max(100,Math.min(2000,Date.now()-start.time))});}}
     onPointerCancel={()=>{pointerStart.current=null;}}/>}

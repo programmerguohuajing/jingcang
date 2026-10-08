@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { AuthService } from '../services/auth.service.js';
 import { getDb } from '../db/index.js';
 import crypto from 'node:crypto';
+import { PassThrough } from 'node:stream';
 
 export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthService) {
   const agentUrl=process.env.JINGCANG_MOBILE_AGENT_URL;
@@ -146,6 +147,38 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     const row=await owner(req,reply);if(!row)return;
     db.prepare("UPDATE mobile_sessions SET status='TERMINATED',updated_at=? WHERE id=?").run(new Date().toISOString(),row.id);
     return {success:true};
+  });
+  server.get('/api/v1/mobile/sessions/:id/stream',async(req,reply)=>{
+    const row=await owner(req,reply);if(!row)return;
+    if(row.status!=='READY')return reply.code(409).send({success:false,error:{code:'SESSION_NOT_READY'}});
+    const boundary='jingcang-frame';
+    const output=new PassThrough({highWaterMark:1024*1024});
+    let closed=false;
+    const stop=()=>{closed=true;output.end();};
+    reply.raw.on('close',stop);
+    reply.header('Content-Type','multipart/x-mixed-replace; boundary='+boundary);
+    reply.header('Cache-Control','no-store, no-cache, must-revalidate');
+    reply.header('X-Accel-Buffering','no');
+    reply.header('Connection','keep-alive');
+    reply.send(output);
+    void (async()=>{
+      const deadline=Date.now()+100000;
+      while(!closed&&Date.now()<deadline){
+        try{
+          const shot=await agent('/devices/'+encodeURIComponent(row.device_id)+'/screenshot');
+          if(!shot.ok)break;
+          const buffer=Buffer.from(await shot.arrayBuffer());
+          if(buffer.length<8||buffer.length>12*1024*1024)break;
+          if(closed)break;
+          const chunk=Buffer.concat([Buffer.from('--'+boundary+'\r\nContent-Type: image/png\r\nContent-Length: '+buffer.length+'\r\n\r\n'),buffer,Buffer.from('\r\n')]);
+          if(!output.write(chunk))await new Promise<void>(resolve=>{output.once('drain',resolve);output.once('close',resolve);});
+          touchSession(row.id);
+        }catch{break;}
+        if(!closed)await new Promise(resolve=>setTimeout(resolve,550));
+      }
+      if(!closed)output.end();
+    })();
+    return reply;
   });
   server.get('/api/v1/mobile/sessions/:id/screenshot',async(req,reply)=>{
     const row=await owner(req,reply);if(!row)return;

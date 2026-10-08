@@ -118,5 +118,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 控制台在存在 emulator-5580 READY 会话时禁用 AVD 启停按钮，避免误操作。没有主动释放已有租约，没有结束原 emulator-5554。
 - TypeScript Lint 和 26 项单元测试通过；**新建 AVD 的实际启动尚未验证通过**，本次不能将自动开机任务标记完成。
 
+### 2026-10-08 · 连续画面 MJPEG 试验通道
+- Fastify 增加受登录与移动会话所有权验证的 `GET /api/v1/mobile/sessions/:id/stream`，以 multipart/x-mixed-replace 返回连续 PNG 截图，启用 no-store 与代理禁用缓冲。流长最多 100 秒，服务端会在断开连接后停止轮询，进行背压控制。
+- 移动端控制台新增“开启连续画面（MJPEG）”切换，可退回原有每 1.8 秒的定时截图，90 秒重建连接；底层仍复用受令牌保护的 Windows Agent，不暴露未认证的宿主 API。
+- Lint、26 项现有单元测试、Build 均通过。增加 `scripts/test-mobile-stream.mjs`，在本机已有活动会话上只检查帧格式、不保存画面：实际 `STREAM_HTTP=200`、`multipart/x-mixed-replace`、`MJPEG_FIRST_PNG=PASS`，首帧约 448ms；未登录请求返回 401，两套独立网关均 HTTP 200。
+- **MJPEG 仍是连续 PNG 截图，不是 scrcpy/H.264/WebRTC 低延迟编码视频**；多人并发、持续传输帧率、实际触控延迟、断线恢复与长时间稳定性仍待验收，不能将低延迟流媒体任务标记完成。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。
