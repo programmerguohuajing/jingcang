@@ -52,6 +52,19 @@ export const MobileDevicesPage: React.FC = () => {
   const r=await fetch('/api/v1/mobile/sessions/'+encodeURIComponent(selected.id)+'/actions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!r.ok)setError('操作失败：设备连接不可用');else void screenshot(selected.id).catch(()=>{});
  }
+ async function createAvd(apiLevel:number){
+  const res=await fetch('/api/v1/mobile/profiles/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apiLevel})});
+  const data=await res.json();
+  if(!res.ok)setError(data.error?.error||'创建测试 AVD 失败');else setError('');
+  await refresh();
+ }
+ async function deleteAvd(id:string){
+  if(!window.confirm('删除 JingCang 管理的测试 AVD？该操作会删除测试设备的数据。'))return;
+  const res=await fetch('/api/v1/mobile/profiles/'+encodeURIComponent(id)+'/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  const data=await res.json();
+  if(!res.ok)setError(data.error?.error||'删除测试 AVD 失败');else setError('');
+  await refresh();
+ }
  async function controlProfile(profile:Profile,operation:'start'|'stop'){
   if(!window.confirm(operation==='start'?'启动该 Android 模拟器？':'停止由当前 Agent 启动的模拟器？'))return;
   const response=await fetch('/api/v1/mobile/profiles/'+encodeURIComponent(profile.id)+'/'+operation,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
@@ -111,11 +124,11 @@ export const MobileDevicesPage: React.FC = () => {
   <p style={{color:'var(--text-muted)'}}>展示实际检测结果，不代表 Appium 已安装或可以运行测试。</p>
   {capabilities.map(c=><div key={c.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{c.id}</strong> · API {c.apiLevel??'未知'} · {c.abi} · Chrome：{c.chromeInstalled?'已安装':'未安装'} · Appium：{appiumReady?'主机工具链在线':'不可用'}</div>)}
   <h2 style={{marginTop:28}}>本机 Android 系统镜像</h2>
-  <p style={{fontSize:13,color:'var(--text-muted)'}}>仅列出已经下载并存在 system.img 的镜像，自动安装和自动创建机型尚未实现。</p>
-  {images.map(i=><div key={i.apiLevel+'-'+i.flavor+'-'+i.abi} style={{padding:9,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:7}}>Android API {i.apiLevel} · {i.flavor} · {i.abi} · 已安装</div>)}
+  <p style={{fontSize:13,color:'var(--text-muted)'}}>仅列出本机现有镜像；API 24 和 27 支持创建受控测试 AVD，新系统镜像自动下载尚未实现。</p>
+  {images.map(i=><div key={i.apiLevel+'-'+i.flavor+'-'+i.abi} style={{padding:9,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:7}}>Android API {i.apiLevel} · {i.flavor} · {i.abi} · 已安装 {([24,27].includes(i.apiLevel)&&i.abi==='x86'&&i.flavor==='google_apis_playstore')&&<button className="btn-secondary" onClick={()=>void createAvd(i.apiLevel)}>创建测试 AVD</button>}</div>)}
   <h2 style={{marginTop:28}}>本机已安装的 Android 模拟器配置</h2>
-  <p style={{color:'var(--text-muted)'}}>仅展示真实存在的 AVD，系统镜像尚未自动创建或安装。</p>
-  {profiles.map(p=><div key={p.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{p.id}</strong> · {p.model} · API {p.apiLevel??'未知'} <button className="btn-secondary" disabled={p.lifecycle?.status==='external'} onClick={()=>void controlProfile(p,p.managed?'stop':'start')}>{p.lifecycle?.status==='external'?'外部进程占用':p.managed?'停止托管模拟器':'启动模拟器'}</button> {p.lifecycle&&<span style={{fontSize:12,marginLeft:8}}>运行状态：{p.lifecycle.status==='ready'?'已就绪':p.lifecycle.status==='starting'?'启动中':p.lifecycle.status==='timeout'?'启动超时':p.lifecycle.status}</span>}<div style={{fontSize:12,color:'var(--text-muted)'}}>{p.systemImage}</div></div>)}
+  <p style={{color:'var(--text-muted)'}}>展示实际存在的 AVD；仅允许删除由 JingCang 创建且没有运行的测试配置。</p>
+  {profiles.map(p=><div key={p.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{p.id}</strong> · {p.model} · API {p.apiLevel??'未知'} <button className="btn-secondary" disabled={p.lifecycle?.status==='external'} onClick={()=>void controlProfile(p,p.managed?'stop':'start')}>{p.lifecycle?.status==='external'?'外部进程占用':p.managed?'停止托管模拟器':'启动模拟器'}</button> {/^JingCang_Test_API(?:24|27)_x86$/.test(p.id)&&<button className="btn-secondary" disabled={p.managed||p.lifecycle?.status==='external'} onClick={()=>void deleteAvd(p.id)}>删除测试 AVD</button>} {p.lifecycle&&<span style={{fontSize:12,marginLeft:8}}>运行状态：{p.lifecycle.status==='ready'?'已就绪':p.lifecycle.status==='starting'?'启动中':p.lifecycle.status==='timeout'?'启动超时':p.lifecycle.status}</span>}<div style={{fontSize:12,color:'var(--text-muted)'}}>{p.systemImage}</div></div>)}
   <h2 style={{marginTop:28}}>移动会话</h2>
   {sessions.filter(s=>s.status==='READY').map(s=><div key={s.id} style={{marginBottom:12,display:'flex',gap:12,alignItems:'center'}}>
    <span>{s.device_id} · {s.mode==='phone'?'完整云手机':'浏览器模式'}</span>

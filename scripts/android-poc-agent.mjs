@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, writeFile, rm, readFile, readdir, stat } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, readFile, readdir, stat, mkdir } from 'node:fs/promises';
 import { tmpdir, homedir } from 'node:os';
 import path from 'node:path';
 import {appiumDiagnostics,runChromeSmoke} from './android-webdriver-automation.mjs';
@@ -121,6 +121,53 @@ http.createServer(async(req,res)=>{
       let externalName='';
       if(external)externalName=(await adbText(['-s',MANAGED_SERIAL,'emu','avd','name']).catch(()=>'' )).split(/\r?\n/)[0].trim();
       return send(res,200,{profiles:await Promise.all(current.map(async p=>({...p,managed:managedAvds.has(p.id)&&managedAvds.get(p.id)?.status!=='failed',lifecycle:await managedStatus(p.id) || (p.id===externalName?{status:'external',serial:MANAGED_SERIAL}:null)})))});
+    }
+    if(req.method==='POST' && url.pathname==='/profiles/create'){
+      if(lifecycleBusy)return send(res,409,{error:'LIFECYCLE_BUSY'});
+      lifecycleBusy=true;
+      try{
+        const body=await jsonBody(req);
+        if(!Number.isInteger(body.apiLevel)||![24,27].includes(body.apiLevel))return send(res,400,{error:'UNSUPPORTED_IMAGE'});
+        const image=(await systemImages()).find(x=>x.apiLevel===body.apiLevel&&x.abi==='x86'&&x.flavor==='google_apis_playstore');
+        if(!image)return send(res,409,{error:'IMAGE_NOT_INSTALLED'});
+        const name='JingCang_Test_API'+body.apiLevel+'_x86';
+        const avdRoot=path.join(homedir(),'.android','avd');
+        const targetDir=path.join(avdRoot,name+'.avd');
+        const iniPath=path.join(avdRoot,name+'.ini');
+        if((await stat(targetDir).catch(()=>null))||(await stat(iniPath).catch(()=>null)))return send(res,409,{error:'AVD_ALREADY_EXISTS'});
+        const templatePath=path.join(avdRoot,'Pixel_2.avd','config.ini');
+        const template=await readFile(templatePath,'utf8');
+        if(!template.includes('image.sysdir.1='))return send(res,503,{error:'TEMPLATE_UNAVAILABLE'});
+        const config=template.split(/\r?\n/).filter(line=>!/^AvdId=|^avd.ini.displayname=|^image.sysdir.1=|^fastboot\./.test(line)).join('\n')
+          +'\nAvdId='+name+'\navd.ini.displayname='+name+'\nimage.sysdir.1=system-images\\android-'+body.apiLevel+'\\'+image.flavor+'\\'+image.abi+'\\\nfastboot.forceColdBoot=yes\n';
+        await mkdir(targetDir,{recursive:false});
+        try{
+          await writeFile(path.join(targetDir,'config.ini'),config,{flag:'wx'});
+          await writeFile(path.join(targetDir,'.jingcang-mobile-managed'),'v1\n',{flag:'wx'});
+          await writeFile(iniPath,'avd.ini.encoding=UTF-8\npath='+targetDir+'\npath.rel=avd\\'+name+'.avd\ntarget=android-'+body.apiLevel+'\n',{flag:'wx'});
+        }catch(error){await rm(targetDir,{recursive:true,force:true});await rm(iniPath,{force:true});throw error;}
+        return send(res,201,{success:true,id:name,apiLevel:body.apiLevel});
+      }finally{lifecycleBusy=false;}
+    }
+    const removeProfile=/^\/profiles\/(JingCang_Test_API(?:24|27)_x86)\/delete$/.exec(url.pathname);
+    if(req.method==='POST' && removeProfile){
+      if(lifecycleBusy)return send(res,409,{error:'LIFECYCLE_BUSY'});
+      lifecycleBusy=true;
+      try{
+        const name=removeProfile[1];
+        const base=path.join(homedir(),'.android','avd');
+        const directory=path.join(base,name+'.avd');
+        if(!(await stat(path.join(directory,'.jingcang-mobile-managed')).catch(()=>null)))return send(res,403,{error:'NOT_MANAGED_AVD'});
+        if(managedAvds.has(name))return send(res,409,{error:'MANAGED_AVD_BUSY'});
+        const existing=await devices();
+        for(const device of existing.filter(x=>x.id.startsWith('emulator-'))){
+          const runningName=await adbText(['-s',device.id,'emu','avd','name']).catch(()=>'');
+          if(runningName.split(/\r?\n/)[0].trim()===name)return send(res,409,{error:'AVD_RUNNING'});
+        }
+        await rm(directory,{recursive:true,force:true});
+        await rm(path.join(base,name+'.ini'),{force:true});
+        return send(res,200,{success:true,id:name});
+      }finally{lifecycleBusy=false;}
     }
     const avdAction=/^\/profiles\/([A-Za-z0-9._-]{1,80})\/(start|stop)$/.exec(url.pathname);
     if(req.method==='POST' && avdAction){

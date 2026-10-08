@@ -100,5 +100,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - Docker 到 Windows Agent `SYSTEM_IMAGES_HTTP=200`，镜像清单与本机实际文件一致；Lint、26 项单测、Build 成功，独立 Docker 重建成功，两套网关 `28088/8088` 均返回 HTTP 200。
 - 待开发：Android 14 镜像获取/离线缓存、创建 AVD 的 API 与调度、低延迟画面、iOS 真机。
 
+### 2026-10-08 · 已安装 Android 镜像的受控 AVD 创建与回收
+- Agent 新增受控创建/删除：仅使用已安装的 Android API 24/27 Google Play x86 镜像，基于现有 Pixel_2 硬件配置生成隔离的 `JingCang_Test_API24_x86` 或 `JingCang_Test_API27_x86`；不使用不受控名称或任意本机路径。
+- 创建目标存在时直接返回 409；删除要求有 `.jingcang-mobile-managed` 标记，并拒绝删除运行中的 AVD，不改变原有配置。
+- Control API 创建和删除接口均要求管理员权限，控制台提供创建测试 AVD 和删除 JingCang 测试 AVD 按钮。
+- **实际验收：** API 24 与 API 27 两套配置均通过 CREATE/DISCOVERY/DELETE；不支持的 API 34 返回 400，原有 `Pixel_2` 的删除请求返回 400；测试后 `emulator -list-avds` 仍然只显示原来的三个配置。
+- **仍待验收：** 由新生成的 AVD 成功冷启动并运行，磁盘配额与多实例调度、Android 14 系统镜像安装及 UI 人工操作。当前后端采用固定名字/单实例安全边界，不是完整的自动设备工厂。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

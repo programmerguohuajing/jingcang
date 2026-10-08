@@ -60,6 +60,32 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
       return {success:true,data:await response.json()};
     }catch{return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
   });
+  server.post('/api/v1/mobile/profiles/create',async(req,reply)=>{
+    const user=userFor(req);
+    if(!user)return reply.code(401).send({success:false});
+    if(user.role!=='admin')return reply.code(403).send({success:false,error:{code:'ADMIN_ONLY'}});
+    const body=req.body as {apiLevel?:number};
+    if(!body || ![24,27].includes(body.apiLevel??-1))return reply.code(400).send({success:false,error:{code:'UNSUPPORTED_IMAGE'}});
+    try{
+      const response=await agent('/profiles/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apiLevel:body.apiLevel})});
+      const result=await response.json();
+      return reply.code(response.status).send(response.ok?{success:true,data:result}:{success:false,error:result});
+    }catch{return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
+  });
+  server.post('/api/v1/mobile/profiles/:id/delete',async(req,reply)=>{
+    const user=userFor(req);
+    if(!user)return reply.code(401).send({success:false});
+    if(user.role!=='admin')return reply.code(403).send({success:false,error:{code:'ADMIN_ONLY'}});
+    const {id}=req.params as {id:string};
+    if(!/^JingCang_Test_API(?:24|27)_x86$/.test(id))return reply.code(400).send({success:false,error:{code:'INVALID_MANAGED_AVD'}});
+    // The Agent validates the managed marker and exact running AVD identity.
+    // An unrelated lease on the fixed emulator port must not block deleting an offline profile.
+    try{
+      const response=await agent('/profiles/'+id+'/delete',{method:'POST'});
+      const result=await response.json();
+      return reply.code(response.status).send(response.ok?{success:true,data:result}:{success:false,error:result});
+    }catch{return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
+  });
   server.post('/api/v1/mobile/profiles/:id/:operation',async(req,reply)=>{
     const user=userFor(req);
     if(!user)return reply.code(401).send({success:false});
