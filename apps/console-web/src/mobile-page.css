@@ -1,0 +1,41 @@
+
+/* Mobile device cloud: follows the console's existing surface and theme tokens. */
+.mobile-workspace{width:100%;max-width:1500px;margin:0 auto;padding:28px 32px 56px;color:var(--text-main)}
+.mobile-page-header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:24px}
+.mobile-heading{display:flex;align-items:center;gap:16px}
+.mobile-heading-icon{width:52px;height:52px;display:flex;align-items:center;justify-content:center;border-radius:14px;color:var(--primary-color);background:var(--primary-light-bg);flex-shrink:0}
+.mobile-heading h1{font-size:26px;letter-spacing:-.6px;margin:2px 0 5px}
+.mobile-heading p,.mobile-section-heading p{color:var(--text-muted);font-size:13px;margin:0}
+.mobile-eyebrow{color:var(--primary-color);font-weight:700;font-size:10px;letter-spacing:1.6px}
+.mobile-header-actions{display:flex;align-items:center;gap:12px}
+.mobile-status{display:inline-flex;align-items:center;gap:8px;font-size:12px;border-radius:999px;padding:7px 12px;background:var(--bg-subtle);color:var(--text-muted)}
+.mobile-status.is-online{color:var(--btn-enable-text);background:var(--btn-enable-bg)}
+.mobile-dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.mobile-refresh,.mobile-tab{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.mobile-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:24px}
+.mobile-kpi{display:flex;align-items:center;gap:16px;min-width:0;padding:20px!important}
+.mobile-kpi-icon{display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:12px;color:var(--primary-color);background:var(--primary-light-bg);flex-shrink:0}
+.mobile-kpi div:last-child{min-width:0;display:flex;flex-direction:column;gap:5px}
+.mobile-kpi span{font-size:12px;color:var(--text-muted)}
+.mobile-kpi strong{font-size:29px;line-height:1.1;font-weight:700;letter-spacing:-.8px}
+.mobile-kpi small{font-size:11px;color:var(--text-subtle)}
+.mobile-tabs{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--border-color);margin-bottom:22px;overflow-x:auto}
+.mobile-tab{flex-shrink:0;border:none;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--text-muted);padding:13px 18px;margin-bottom:-1px;font-size:13px}
+.mobile-tab:hover{color:var(--text-main);background:var(--bg-subtle)}
+.mobile-tab.active{border-bottom-color:var(--primary-color);color:var(--primary-color);font-weight:700}
+.mobile-panel{padding:24px;margin-bottom:18px;box-shadow:none}
+.mobile-panel h2{display:flex;align-items:center;gap:9px;font-size:17px;margin:0 0 14px}
+.mobile-panel>p{font-size:13px;color:var(--text-muted);line-height:1.7}
+.mobile-section-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.mobile-section-heading h2{margin-bottom:6px}
+.mobile-url-field{display:flex;align-items:center;gap:12px;margin:0 0 18px;font-size:13px;color:var(--text-muted)}
+.mobile-device-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:14px}
+.mobile-device-card{border:1px solid var(--border-color);background:var(--bg-subtle);border-radius:10px;padding:20px;min-width:0}
+.mobile-device-card h3{font-size:16px;margin:0 0 12px;overflow-wrap:anywhere}
+.mobile-device-card p{font-size:12px;color:var(--text-muted);line-height:1.6}
+.mobile-device-card>div{flex-wrap:wrap}
+.mobile-controller{background:var(--bg-subtle);border:1px solid var(--border-color);padding:24px;border-radius:10px;margin-top:24px}
+.mobile-controller h3{margin:0 0 12px}
+.mobile-workspace button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:1050px){.mobile-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.mobile-workspace{padding:20px 14px 40px}.mobile-page-header{align-items:flex-start;flex-direction:column}.mobile-kpis{gap:10px}.mobile-kpi{padding:14px!important;gap:10px}.mobile-kpi-icon{width:38px;height:38px}.mobile-kpi strong{font-size:24px}.mobile-panel{padding:16px}.mobile-url-field{flex-wrap:wrap}.mobile-device-grid{grid-template-columns:1fr}}
