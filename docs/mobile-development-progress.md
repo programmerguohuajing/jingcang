@@ -164,5 +164,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 真实 Docker 验证：`AGENT_NODE_REGISTRY=PASS NODE=windows-local-dev`、`ANONYMOUS_NODES_HTTP=401`、原有移动会话心跳及租约检查 PASS；原 8088 网关 HTTP 200；全项目 Lint、26 项单元测试与构建通过。
 - 此阶段仍是单个已配置 Windows Agent 的轮询观测登记；多节点独立令牌/证书注册、跨节点路由与设备租约回收仍待完整实现。
 
+### 2026-10-08 · P1 移动会话节点归属及错误路由保护
+- 为已有 mobile_sessions 表增加向后兼容的 node_id 字段迁移，旧会话默认归属 windows-local-dev；插入新会话改用显式列名，避免表结构增加后 INSERT VALUES 参数数目不符。
+- 移动设备列表通过 node_id + device_id 复合标识计算租用状态，同时在响应中展示节点归属。目前设备操作仍只路由到已配置 windows-local-dev Agent；请求未配置节点返回 409 NODE_NOT_ROUTABLE，不会错误操作同名序列号的其他主机。
+- 已在隔离 28088 环境验证旧会话 node_id 迁移及未配置节点拒绝：SESSION_NODE_OWNERSHIP_MIGRATION=PASS、UNKNOWN_NODE_ROUTING_REJECTION=PASS；节点登记、活动会话心跳、租约保护检查均通过。Lint、26 项既有单元测试与 Build 均通过；原 8088 服务保持 HTTP 200。
+- 注意：这只是多节点模型的兼容性基础；唯一索引、租约分配、设备路由与多个 Agent 的凭证隔离尚未升级为真正多节点生产调度，不能标记多节点 P1 完成。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

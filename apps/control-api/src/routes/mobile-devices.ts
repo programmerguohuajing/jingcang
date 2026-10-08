@@ -15,6 +15,8 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
   );
   CREATE UNIQUE INDEX IF NOT EXISTS idx_mobile_device_active
     ON mobile_sessions(device_id) WHERE status='READY';`);
+  const sessionColumns=db.prepare('PRAGMA table_info(mobile_sessions)').all() as Array<{name:string}>;
+  if(!sessionColumns.some(column=>column.name==='node_id'))db.exec("ALTER TABLE mobile_sessions ADD COLUMN node_id TEXT NOT NULL DEFAULT 'windows-local-dev'");
   db.exec(`CREATE TABLE IF NOT EXISTS mobile_agent_nodes (node_id TEXT PRIMARY KEY, platform TEXT NOT NULL, started_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, uptime_seconds INTEGER NOT NULL DEFAULT 0, managed_count INTEGER NOT NULL DEFAULT 0);`);
   function expireIdleSessions(){
     const threshold=new Date(Date.now()-2*60*60*1000).toISOString();
@@ -56,8 +58,8 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
       if(!result.ok) throw new Error('AGENT_HTTP_'+result.status);
       expireIdleSessions();
       const payload=await result.json() as {devices:Array<{id:string;state:string;booted?:boolean}>};
-      const busy=new Set((db.prepare("SELECT device_id FROM mobile_sessions WHERE status='READY'").all() as Array<{device_id:string}>).map(s=>s.device_id));
-      return {success:true,data:{status:'online',devices:payload.devices.map(d=>({...d,available:d.state==='device'&&d.booted===true&&!busy.has(d.id),leased:busy.has(d.id)}))}};
+      const busy=new Set((db.prepare("SELECT node_id || ':' || device_id AS key FROM mobile_sessions WHERE status='READY'").all() as Array<{key:string}>).map(s=>s.key));
+      return {success:true,data:{status:'online',devices:payload.devices.map(d=>({...d,nodeId:'windows-local-dev',available:d.state==='device'&&d.booted===true&&!busy.has('windows-local-dev:'+d.id),leased:busy.has('windows-local-dev:'+d.id)}))}};
     }catch{return {success:true,data:{status:'offline',devices:[]}};}
   });
   server.get('/api/v1/mobile/capabilities',async(req,reply)=>{
@@ -135,15 +137,16 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
   });
   server.post('/api/v1/mobile/sessions',async(req,reply)=>{
     const user=userFor(req);if(!user)return reply.code(401).send({success:false});
-    const data=req.body as {deviceId?:string;mode?:string;startUrl?:string};
+    const data=req.body as {deviceId?:string;nodeId?:string;mode?:string;startUrl?:string};
     if(!data || !/^[\w.:-]{1,80}$/.test(data.deviceId||'') || !['phone','browser'].includes(data.mode||''))return reply.code(400).send({success:false,error:{code:'INVALID_REQUEST'}});
+    if(data.nodeId && data.nodeId!=='windows-local-dev')return reply.code(409).send({success:false,error:{code:'NODE_NOT_ROUTABLE'}});
     try{
       expireIdleSessions();
       const response=await agent('/devices');if(!response.ok)throw Error('AGENT_OFFLINE');
       const info=await response.json() as {devices:Array<{id:string;state:string;booted?:boolean}>};
       if(!info.devices.some(d=>d.id===data.deviceId && d.state==='device' && d.booted)) return reply.code(409).send({success:false,error:{code:'DEVICE_UNAVAILABLE'}});
       const id='mobile-'+crypto.randomUUID();
-      db.prepare("INSERT INTO mobile_sessions VALUES (?,?,?,?,?,?,?)").run(id,data.deviceId!,user.id,data.mode!,'READY',new Date().toISOString(),new Date().toISOString());
+      db.prepare("INSERT INTO mobile_sessions(id,device_id,user_id,mode,status,created_at,updated_at,node_id) VALUES (?,?,?,?,?,?,?,?)").run(id,data.deviceId!,user.id,data.mode!,'READY',new Date().toISOString(),new Date().toISOString(),'windows-local-dev');
       if(data.mode==='browser') {
         try {
           const url = new URL(data.startUrl || 'https://example.com');
@@ -155,7 +158,7 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
           throw e;
         }
       }
-      return reply.code(201).send({success:true,data:{id,deviceId:data.deviceId,mode:data.mode,status:'READY'}});
+      return reply.code(201).send({success:true,data:{id,deviceId:data.deviceId,nodeId:'windows-local-dev',mode:data.mode,status:'READY'}});
     }catch(e:any){return reply.code(409).send({success:false,error:{code:'DEVICE_BUSY_OR_OFFLINE',message:String(e.message)}});}
   });
   async function owner(req:any,reply:any){

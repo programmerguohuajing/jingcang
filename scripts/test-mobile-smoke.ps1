@@ -80,6 +80,16 @@ $available=@($devices.data.devices | Where-Object {$_.state -eq 'device' -and $_
 if ($available.Count -lt 1) { throw 'No booted Android devices' }
 $device=$available[0]
 $existing=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/sessions') -WebSession $session
+foreach($lease in @($existing.data)){
+  if(-not $lease.node_id){throw 'Missing node ownership after migration'}
+}
+Write-Output 'SESSION_NODE_OWNERSHIP_MIGRATION=PASS'
+try{
+  Invoke-RestMethod -Uri ($base+'/api/v1/mobile/sessions') -Method Post -WebSession $session -ContentType 'application/json' -Body (@{deviceId=$device.id;nodeId='unconfigured-test-node';mode='phone'}|ConvertTo-Json) | Out-Null
+  throw 'Unknown node was allowed'
+}catch{
+  if($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 409){Write-Output 'UNKNOWN_NODE_ROUTING_REJECTION=PASS'}else{throw}
+}
 if (@($existing.data | Where-Object {$_.device_id -eq $device.id -and $_.status -eq 'READY'}).Count -gt 0){
   $lease=@($existing.data | Where-Object {$_.device_id -eq $device.id -and $_.status -eq 'READY'})[0]
   $heartbeat=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/sessions/'+$lease.id+'/heartbeat') -Method Post -WebSession $session -ContentType 'application/json' -Body '{}'
