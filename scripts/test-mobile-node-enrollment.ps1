@@ -12,7 +12,7 @@ $provisioned=Invoke-RestMethod ($base+'/api/v1/mobile/nodes/enroll') -Method Pos
 if(-not $provisioned.success -or $provisioned.data.credential.Length -ne 64){throw 'Invalid node credential'}
 $credential=$provisioned.data.credential
 Write-Output 'NODE_CREDENTIAL_ENROLL=PASS'
-$body=@{platform='windows';uptimeSeconds=15;managedEmulatorCount=0;startedAt=[DateTime]::UtcNow.ToString('o')}|ConvertTo-Json
+$body=@{platform='windows';uptimeSeconds=15;managedEmulatorCount=0;startedAt=[DateTime]::UtcNow.ToString('o');devices=@(@{id='emulator-5554';kind='android-emulator';state='device';booted=$true})}|ConvertTo-Json -Depth 6
 try{
  $ok=Invoke-RestMethod ($base+'/api/v1/mobile/nodes/'+$nodeId+'/heartbeat') -Method Post -Headers @{Authorization='Bearer '+$credential} -ContentType 'application/json' -Body $body
  if(-not $ok.success){throw 'Node heartbeat was rejected'}
@@ -20,6 +20,10 @@ try{
  $nodes=Invoke-RestMethod ($base+'/api/v1/mobile/nodes') -WebSession $session
  if(-not @($nodes.data.nodes | Where-Object {$_.node_id -eq $nodeId -and $_.online}).Count){throw 'Node was not listed as online'}
  Write-Output 'NODE_REGISTRY_OBSERVATION=PASS'
+ $inventory=Invoke-RestMethod ($base+'/api/v1/mobile/node-devices') -WebSession $session
+ $item=@($inventory.data.devices | Where-Object {$_.nodeId -eq $nodeId -and $_.id -eq 'emulator-5554'})[0]
+ if(-not $item -or -not $item.online -or $item.available -or $item.routable){throw 'Remote device inventory must be visible but not routable'}
+ Write-Output 'REMOTE_NODE_DEVICE_DISCOVERY=PASS'
  try {
   Invoke-RestMethod ($base+'/api/v1/mobile/nodes/'+$nodeId+'/heartbeat') -Method Post -Headers @{Authorization='Bearer '+('0'*64)} -ContentType 'application/json' -Body $body | Out-Null
   throw 'Forged credential was accepted'

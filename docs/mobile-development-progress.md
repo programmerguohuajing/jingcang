@@ -204,5 +204,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - `scripts/test-mobile-node-enrollment.ps1` 增加撤销后节点列表立即离线校验 `REVOKED_NODE_IMMEDIATELY_OFFLINE=PASS`；认证心跳、错误凭证拒绝、撤销后凭证拒绝及原有会话、APK、截图、浏览器回归通过，Control API 类型检查/构建、4 项节点心跳与 4 项复合租约测试通过。独立 28088 开发环境成功重建。
 - 这项是节点失联隔离的局部完善：真正跨节点设备路由、隔离设备租约恢复、H.264/WebRTC、Android14 启动、Linux KVM 和 iOS 仍未完成。
 
+### 2026-10-08 · P1 多节点设备发现与隔离式只读目录
+- Agent 主动认证心跳增加可选设备清单（id、kind、state、booted），每次上报经凭证校验且严格验证字段、设备条数和重复 ID；以 node_id + device_id 保存独立设备归属，空清单可移除离线设备缓存。
+- Control API 新增登录后只读 `GET /api/v1/mobile/node-devices`，展示各节点上报设备与节点在线状态；撤销节点/心跳过期后，设备目录同步显示 offline，并强制 `available=false`、`routable=false`。此阶段远程设备不可创建会话、不可跨节点操作。
+- 测试节点模拟上报与查询真实 Docker 接口 `REMOTE_NODE_DEVICE_DISCOVERY=PASS`；节点凭证校验/撤销、移动设备租约、APK 和截图及浏览器会话回归通过；Control API 类型检查与构建、4 项 Agent 心跳测试通过，开发 Docker 已重建。
+- Android14 冷启动按用户要求暂时跳过，不继续调整主机内存；剩余 P0 视频链路、P1 可信远程路由/失联回收、P2 Linux KVM/真机与离线部署继续推进。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

@@ -26,6 +26,7 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     node_id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, created_at TEXT NOT NULL,
     revoked_at TEXT
   );`);
+  db.exec(`CREATE TABLE IF NOT EXISTS mobile_node_devices (node_id TEXT NOT NULL, device_id TEXT NOT NULL, kind TEXT NOT NULL, state TEXT NOT NULL, booted INTEGER NOT NULL DEFAULT 0, last_seen_at TEXT NOT NULL, PRIMARY KEY(node_id,device_id));`);
   // Enrollment credentials are only returned once; store their SHA-256 digests, not plaintext.
   server.post('/api/v1/mobile/nodes/enroll',async(req,reply)=>{
     const user=userFor(req);
@@ -53,15 +54,27 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     const record=db.prepare('SELECT token_hash,revoked_at FROM mobile_node_credentials WHERE node_id=?').get(id) as {token_hash:string;revoked_at:string|null}|undefined;
     if(!record||record.revoked_at||!crypto.timingSafeEqual(Buffer.from(record.token_hash,'hex'),Buffer.from(tokenHash,'hex')))
       return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
-    const body=req.body as {platform?:string;uptimeSeconds?:number;managedEmulatorCount?:number;startedAt?:string}|undefined;
+    const body=req.body as {platform?:string;uptimeSeconds?:number;managedEmulatorCount?:number;startedAt?:string;devices?:Array<{id:string;kind:string;state:string;booted?:boolean}>}|undefined;
     const platform=body?.platform;
     if(!platform||!(/^[a-z0-9._-]{1,32}$/i).test(platform)||!Number.isSafeInteger(body?.uptimeSeconds)||body!.uptimeSeconds!<0||!Number.isSafeInteger(body?.managedEmulatorCount)||body!.managedEmulatorCount!<0)
       return reply.code(400).send({success:false,error:{code:'INVALID_HEARTBEAT'}});
+    if(body?.devices!==undefined && (!Array.isArray(body.devices)||body.devices.length>100||body.devices.some(x=>!x||typeof x.id!=='string'||!/^[a-zA-Z0-9._:-]{1,80}$/.test(x.id)||!['android-emulator','android-real'].includes(x.kind)||!['device','offline','unauthorized'].includes(x.state)||typeof x.booted!=='boolean')))
+      return reply.code(400).send({success:false,error:{code:'INVALID_DEVICE_INVENTORY'}});
+    if(body?.devices&&new Set(body.devices.map(x=>x.id)).size!==body.devices.length)return reply.code(400).send({success:false,error:{code:'DUPLICATE_DEVICE_ID'}});
     const now=new Date().toISOString();
     const startedAt=typeof body?.startedAt==='string'&&!Number.isNaN(Date.parse(body.startedAt))?new Date(body.startedAt).toISOString():now;
     db.prepare(`INSERT INTO mobile_agent_nodes(node_id,platform,started_at,last_seen_at,uptime_seconds,managed_count) VALUES(?,?,?,?,?,?)
       ON CONFLICT(node_id) DO UPDATE SET platform=excluded.platform,started_at=excluded.started_at,last_seen_at=excluded.last_seen_at,uptime_seconds=excluded.uptime_seconds,managed_count=excluded.managed_count`)
       .run(id,platform,startedAt,now,body!.uptimeSeconds!,body!.managedEmulatorCount!);
+    if(body?.devices){
+      db.exec('BEGIN IMMEDIATE');
+      try{
+        db.prepare('DELETE FROM mobile_node_devices WHERE node_id=?').run(id);
+        const insert=db.prepare('INSERT INTO mobile_node_devices(node_id,device_id,kind,state,booted,last_seen_at) VALUES(?,?,?,?,?,?)');
+        for(const device of body.devices)insert.run(id,device.id,device.kind,device.state,device.booted?1:0,now);
+        db.exec('COMMIT');
+      }catch(error){db.exec('ROLLBACK');throw error;}
+    }
     return {success:true,data:{nodeId:id,lastSeenAt:now}};
   });
   server.post('/api/v1/mobile/nodes/:id/revoke',async(req,reply)=>{
@@ -108,6 +121,14 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
       FROM mobile_agent_nodes n LEFT JOIN mobile_node_credentials c ON c.node_id=n.node_id
       ORDER BY n.last_seen_at DESC`).all() as Array<{node_id:string;platform:string;started_at:string;last_seen_at:string;uptime_seconds:number;managed_count:number;revoked_at:string|null}>;
     return {success:true,data:{nodes:rows.map(({revoked_at,...row})=>({...row,online:!revoked_at&&now-Date.parse(row.last_seen_at)<45000,revoked:!!revoked_at})),staleAfterMs:45000}};
+  });
+  server.get('/api/v1/mobile/node-devices',async(req,reply)=>{
+    if(!userFor(req))return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
+    const now=Date.now();
+    const rows=db.prepare(`SELECT d.node_id,d.device_id,d.kind,d.state,d.booted,d.last_seen_at,n.last_seen_at AS node_seen_at,c.revoked_at
+      FROM mobile_node_devices d JOIN mobile_agent_nodes n ON n.node_id=d.node_id
+      LEFT JOIN mobile_node_credentials c ON c.node_id=d.node_id ORDER BY d.node_id,d.device_id`).all() as Array<{node_id:string;device_id:string;kind:string;state:string;booted:number;last_seen_at:string;node_seen_at:string;revoked_at:string|null}>;
+    return {success:true,data:{devices:rows.map(d=>({nodeId:d.node_id,id:d.device_id,kind:d.kind,state:d.state,booted:!!d.booted,online:!d.revoked_at&&now-Date.parse(d.node_seen_at)<45000,available:false,routable:false}))}};
   });
   server.get('/api/v1/mobile/devices',async(req,reply)=>{
     if(!userFor(req)) return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});

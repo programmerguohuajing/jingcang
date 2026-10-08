@@ -285,6 +285,6 @@ http.createServer(async(req,res)=>{
 }).listen(port,host,()=>{
   console.log('Android Device Agent listening on '+host+':'+port);
   if(process.env.JINGCANG_NODE_CONTROL_URL && process.env.JINGCANG_NODE_CREDENTIAL){
-    startNodeHeartbeat({nodeId:agentNodeId,credential:process.env.JINGCANG_NODE_CREDENTIAL,controlUrl:process.env.JINGCANG_NODE_CONTROL_URL,platform:process.platform,startedAt:agentStartedAt,managedCount:()=>managedAvds.size});
+    startNodeHeartbeat({nodeId:agentNodeId,credential:process.env.JINGCANG_NODE_CREDENTIAL,controlUrl:process.env.JINGCANG_NODE_CONTROL_URL,platform:process.platform,startedAt:agentStartedAt,managedCount:()=>managedAvds.size,deviceInventory:async()=>{try{return (await devices()).map(d=>({id:d.id,kind:d.kind,state:d.state,booted:!!d.booted}));}catch{return [];}}});
   }
 });
