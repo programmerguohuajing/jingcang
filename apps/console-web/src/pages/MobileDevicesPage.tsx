@@ -45,6 +45,18 @@ export const MobileDevicesPage: React.FC = () => {
  useEffect(()=>{void refresh();const i=setInterval(()=>void refresh(),10000);return()=>clearInterval(i)},[refresh]);
  useEffect(()=>{if(!selected||streaming)return;void screenshot(selected.id).catch(e=>setError(String(e)));const i=setInterval(()=>void screenshot(selected.id).catch(()=>{}),1800);return()=>clearInterval(i)},[selected,screenshot,streaming]);
  useEffect(()=>{if(!selected||!streaming)return;const i=setInterval(()=>setStreamEpoch(x=>x+1),90000);return()=>clearInterval(i)},[selected,streaming]);
+ useEffect(()=>{
+  if(!selected||selected.status!=='READY')return;
+  const id=selected.id;
+  const keepAlive=async()=>{
+   try{
+    const r=await fetch('/api/v1/mobile/sessions/'+encodeURIComponent(id)+'/heartbeat',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    if(!r.ok){setError('移动设备会话心跳失败，请检查会话是否已结束');if(r.status===409||r.status===404)setSelected(null);}
+   }catch{setError('移动设备会话心跳连接中断');}
+  };
+  const interval=setInterval(()=>void keepAlive(),30000);
+  return()=>clearInterval(interval);
+ },[selected]);
  async function create(deviceId:string,mode:'phone'|'browser'){
   const r=await fetch('/api/v1/mobile/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId,mode,startUrl})});
   const json=await r.json();

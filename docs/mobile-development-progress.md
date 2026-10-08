@@ -131,5 +131,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 全项目 Lint、26 项单元测试、构建通过；独立开发环境部署情况及接口回归记录以当前实测为准。
 - 仍未完成：P0 Android 14 镜像及新设备冷启动、APK 安装/卸载实测、H.264/WebRTC 低延迟链路；P1 设备 Agent 注册与心跳、多节点租约调度、正式权限/审计；P2 Linux KVM 设备权限与生产容器、真机池、离线镜像包、可靠性及压力测试。
 
+### 2026-10-08 · 移动会话显式心跳与 Android 14 安装前置工作
+- P1 新增 `POST /api/v1/mobile/sessions/:id/heartbeat`，要求现有会话所有权且状态为 READY，自动拒绝已过期或终止会话，更新活跃时间并返回 30 秒心跳间隔。
+- 控制台选中移动会话后每 30 秒发送保活请求，断线时提示；不存在或不可用的会话会退出选中状态。原有截图、动作、MJPEG 继续采用既有鉴权。
+- 全项目 Lint、26 项单元测试和 Build 通过；独立 Docker 重建成功，未登录心跳返回 HTTP 401，28088 和原有 8088 均返回 200。尚需使用新建的专用移动会话进行心跳成功/过期的端到端回归。
+- P0 新增 `scripts/install-android14-image.ps1`，限定 Android 官方 `system-images;android-34;google_apis;x86_64` 并在安装后检查 system.img。SDK Command-Line Tools 原始下载来自 Android 开发者页面列出的 Windows 官方 ZIP，预期 SHA-256 `90ae805d20434428bffcb699c290860f19bb5f66a67e6b330067e3de801fb04a`；本次网络下载较慢，**Android 14 镜像并未安装或验收**。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

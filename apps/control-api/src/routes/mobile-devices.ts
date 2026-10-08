@@ -146,6 +146,14 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     if(row.user_id!==user.id && user.role!=='admin'){reply.code(403).send({success:false});return null;}
     return row;
   }
+  server.post('/api/v1/mobile/sessions/:id/heartbeat',async(req,reply)=>{
+    const row=await owner(req,reply);if(!row)return;
+    expireIdleSessions();
+    const status=db.prepare('SELECT status FROM mobile_sessions WHERE id=?').get(row.id) as {status:string};
+    if(status.status!=='READY')return reply.code(409).send({success:false,error:{code:'SESSION_NOT_READY'}});
+    db.prepare("UPDATE mobile_sessions SET updated_at=? WHERE id=? AND status='READY'").run(new Date().toISOString(),row.id);
+    return {success:true,data:{id:row.id,status:'READY',heartbeatIntervalMs:30000}};
+  });
   server.delete('/api/v1/mobile/sessions/:id',async(req,reply)=>{
     const row=await owner(req,reply);if(!row)return;
     db.prepare("UPDATE mobile_sessions SET status='TERMINATED',updated_at=? WHERE id=?").run(new Date().toISOString(),row.id);
