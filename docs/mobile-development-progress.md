@@ -124,5 +124,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - Lint、26 项现有单元测试、Build 均通过。增加 `scripts/test-mobile-stream.mjs`，在本机已有活动会话上只检查帧格式、不保存画面：实际 `STREAM_HTTP=200`、`multipart/x-mixed-replace`、`MJPEG_FIRST_PNG=PASS`，首帧约 448ms；未登录请求返回 401，两套独立网关均 HTTP 200。
 - **MJPEG 仍是连续 PNG 截图，不是 scrcpy/H.264/WebRTC 低延迟编码视频**；多人并发、持续传输帧率、实际触控延迟、断线恢复与长时间稳定性仍待验收，不能将低延迟流媒体任务标记完成。
 
+### 2026-10-08 · P0/P1/P2 继续推进：应用控制、租约状态、Linux KVM 预检
+- Android Agent 新增 `uninstallApp`，先以 `pm list packages -3` 验证确为已安装第三方应用，再执行 ADB 卸载。拒绝不存在/系统 App，测试中对不存在包返回 403，未删除任何真实应用。新增 `rotate` 横竖屏操作，UI 增加旋转按钮；横竖屏实际交互测试仍待独立空闲设备验收。
+- Web 设备列表中加入可用/已租用状态。Control API 在 `/api/v1/mobile/devices` 查询当前 READY 租约，前端禁用已占用设备的云手机/浏览器模式创建按钮。继续使用数据库唯一索引作为并发独占保障。
+- P2 新增 `scripts/check-linux-android-kvm.sh` Linux 主机 KVM、CPU 虚拟化标志、剩余存储、Android SDK 镜像目录预检。**当前独立 Docker 容器实测 `/dev/kvm` 缺失**、CPU 虚拟化标志存在，返回 `ANDROID_KVM_EMULATOR_READY=false`，退出码 2。Linux KVM 模拟器生产部署目前不具备条件，不能标记完成。
+- 全项目 Lint、26 项单元测试、构建通过；独立开发环境部署情况及接口回归记录以当前实测为准。
+- 仍未完成：P0 Android 14 镜像及新设备冷启动、APK 安装/卸载实测、H.264/WebRTC 低延迟链路；P1 设备 Agent 注册与心跳、多节点租约调度、正式权限/审计；P2 Linux KVM 设备权限与生产容器、真机池、离线镜像包、可靠性及压力测试。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

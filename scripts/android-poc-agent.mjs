@@ -251,6 +251,15 @@ http.createServer(async(req,res)=>{
         if(!installed.includes('package:')) return send(res,404,{error:'PACKAGE_NOT_INSTALLED'});
         if(body.type==='launchApp') await adbText(['-s',serial,'shell','monkey','-p',body.package,'-c','android.intent.category.LAUNCHER','1']);
         else await adbText(['-s',serial,'shell','am','force-stop',body.package]);
+      }else if(body.type==='uninstallApp' && typeof body.package==='string' && /^[a-zA-Z][a-zA-Z0-9_.]{1,180}$/.test(body.package)){
+        const userPackages=await adbText(['-s',serial,'shell','pm','list','packages','-3']);
+        if(!userPackages.split(/\r?\n/).includes('package:'+body.package))return send(res,403,{error:'NOT_THIRD_PARTY_APP'});
+        const output=await adbText(['-s',serial,'uninstall',body.package]);
+        if(!output.includes('Success'))return send(res,409,{error:'UNINSTALL_FAILED'});
+      }else if(body.type==='rotate' && (body.orientation==='portrait'||body.orientation==='landscape')){
+        const rotation=body.orientation==='landscape'?'1':'0';
+        await adbText(['-s',serial,'shell','settings','put','system','accelerometer_rotation','0']);
+        await adbText(['-s',serial,'shell','settings','put','system','user_rotation',rotation]);
       }else if(body.type==='text' && typeof body.text==='string' && body.text.length>0 && body.text.length<=120 && /^[A-Za-z0-9 .@:_/-]+$/.test(body.text)){
         await adbText(['-s',serial,'shell','input','text',body.text.replace(/ /g,'%s')]);
       }else if(body.type==='navigate' && typeof body.url==='string' && body.url.length<=2048 && /^https?:\/\//i.test(body.url)){

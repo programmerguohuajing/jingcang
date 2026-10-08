@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-type Device = {id:string;kind:string;state:string;model?:string;osVersion?:string;booted?:boolean};
+type Device = {id:string;kind:string;state:string;model?:string;osVersion?:string;booted?:boolean;available?:boolean;leased?:boolean};
 type Session = {id:string;device_id:string;mode:string;status:string};
 type Capability = {id:string;apiLevel:number|null;abi:string;chromeInstalled:boolean;securityPatch:string;appiumStatus:string};
 type SystemImage = {apiLevel:number;flavor:string;abi:string;installed:boolean};
@@ -119,8 +119,8 @@ export const MobileDevicesPage: React.FC = () => {
   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(270px,1fr))',gap:16}}>
    {devices.map(d=><section key={d.id} style={{border:'1px solid var(--nav-border)',padding:20,borderRadius:12}}>
     <h3>{d.model||d.id}</h3><p>{d.kind==='android-emulator'?'Android 模拟器':'Android 真机'} · Android {d.osVersion||'未知'}</p>
-    <p>状态：{d.booted?'就绪':d.state}</p>
-    <div style={{display:'flex',gap:8}}><button className="btn-secondary" disabled={!d.booted} onClick={()=>void create(d.id,'phone')}>完整云手机</button><button className="btn-secondary" disabled={!d.booted} onClick={()=>void create(d.id,'browser')}>浏览器模式</button></div>
+    <p>状态：{d.leased?'已被会话独占':d.booted?'就绪':d.state}</p>
+    <div style={{display:'flex',gap:8}}><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'phone')}>完整云手机</button><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'browser')}>浏览器模式</button></div>
    </section>)}
   </div>
   {devices.length===0&&<p>暂无在线 Android 设备，请检查 Windows Agent、ADB 与 Docker 连通性。</p>}
@@ -147,9 +147,9 @@ export const MobileDevicesPage: React.FC = () => {
     onPointerDown={e=>{const b=e.currentTarget.getBoundingClientRect();pointerStart.current={x:Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y:Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight),time:Date.now()};e.currentTarget.setPointerCapture(e.pointerId);}}
     onPointerUp={e=>{const start=pointerStart.current;pointerStart.current=null;if(!start)return;const b=e.currentTarget.getBoundingClientRect();const x=Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y=Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight);if(Math.hypot(x-start.x,y-start.y)<15)void action({type:'tap',x,y});else void action({type:'swipe',x1:start.x,y1:start.y,x2:x,y2:y,duration:Math.max(100,Math.min(2000,Date.now()-start.time))});}}
     onPointerCancel={()=>{pointerStart.current=null;}}/>}
-   <div style={{marginTop:16}}><label>安装测试 APK（最大 8MB）：<input type="file" accept=".apk,application/vnd.android.package-archive" disabled={installing} onChange={e=>{const file=e.target.files?.[0];if(file)void installApk(file);e.target.value='';}} /></label>{installing&&<p>正在安装测试应用…</p>}<button className="btn-secondary" onClick={()=>void loadApps()}>查看第三方 App</button>{apps.map(pkg=><div key={pkg} style={{display:'flex',gap:8,alignItems:'center',marginTop:8}}><code>{pkg}</code><button className="btn-secondary" onClick={()=>void action({type:'launchApp',package:pkg})}>启动</button><button className="btn-secondary" onClick={()=>void action({type:'stopApp',package:pkg})}>停止</button></div>)}</div>
+   <div style={{marginTop:16}}><label>安装测试 APK（最大 8MB）：<input type="file" accept=".apk,application/vnd.android.package-archive" disabled={installing} onChange={e=>{const file=e.target.files?.[0];if(file)void installApk(file);e.target.value='';}} /></label>{installing&&<p>正在安装测试应用…</p>}<button className="btn-secondary" onClick={()=>void loadApps()}>查看第三方 App</button>{apps.map(pkg=><div key={pkg} style={{display:'flex',gap:8,alignItems:'center',marginTop:8}}><code>{pkg}</code><button className="btn-secondary" onClick={()=>void action({type:'launchApp',package:pkg})}>启动</button><button className="btn-secondary" onClick={()=>void action({type:'stopApp',package:pkg})}>停止</button><button className="btn-secondary" onClick={()=>{if(window.confirm('确定卸载 '+pkg+'？应用数据可能丢失。'))void action({type:'uninstallApp',package:pkg}).then(()=>loadApps());}}>卸载</button></div>)}</div>
    <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12}}><input aria-label="输入英文文本" value={typed} onChange={e=>setTyped(e.target.value)} placeholder="英文/数字输入" maxLength={120}/><button className="btn-secondary" onClick={()=>{void action({type:'text',text:typed});setTyped('');}}>输入</button></div>
-   <div style={{display:'flex',justifyContent:'center',gap:12,marginTop:12}}>{(['BACK','HOME','APP_SWITCH'] as const).map(k=><button key={k} className="btn-secondary" onClick={()=>void action({type:'key',key:k})}>{k}</button>)}</div>
+   <div style={{display:'flex',justifyContent:'center',gap:12,marginTop:12}}><button className="btn-secondary" onClick={()=>void action({type:'rotate',orientation:'portrait'})}>竖屏</button><button className="btn-secondary" onClick={()=>void action({type:'rotate',orientation:'landscape'})}>横屏</button>{(['BACK','HOME','APP_SWITCH'] as const).map(k=><button key={k} className="btn-secondary" onClick={()=>void action({type:'key',key:k})}>{k}</button>)}</div>
   </section>}
  </main>;
 };

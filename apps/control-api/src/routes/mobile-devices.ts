@@ -34,7 +34,10 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     try{
       const result=await agent('/devices');
       if(!result.ok) throw new Error('AGENT_HTTP_'+result.status);
-      return {success:true,data:{status:'online',...(await result.json() as object)}};
+      expireIdleSessions();
+      const payload=await result.json() as {devices:Array<{id:string;state:string;booted?:boolean}>};
+      const busy=new Set((db.prepare("SELECT device_id FROM mobile_sessions WHERE status='READY'").all() as Array<{device_id:string}>).map(s=>s.device_id));
+      return {success:true,data:{status:'online',devices:payload.devices.map(d=>({...d,available:d.state==='device'&&d.booted===true&&!busy.has(d.id),leased:busy.has(d.id)}))}};
     }catch{return {success:true,data:{status:'offline',devices:[]}};}
   });
   server.get('/api/v1/mobile/capabilities',async(req,reply)=>{

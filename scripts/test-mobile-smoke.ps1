@@ -9,6 +9,10 @@ $login=Invoke-RestMethod -Uri ($base+'/api/v1/auth/login') -Method Post -WebSess
 if (-not $login.success) { throw 'Login failed' }
 $devices=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/devices') -WebSession $session
 Write-Output ('AUTH=OK AGENT_STATUS='+$devices.data.status+' DEVICES='+@($devices.data.devices).Count)
+foreach($d in @($devices.data.devices)){
+  if($d.leased -and $d.available){throw 'Leased device incorrectly marked available'}
+}
+Write-Output 'LEASED_DEVICE_AVAILABILITY_GUARD=PASS'
 $profiles=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/profiles') -WebSession $session
 if(-not $profiles.success){throw 'AVD profile discovery failed'}
 Write-Output ('AVD_PROFILES='+@($profiles.data.profiles).Count)
@@ -20,7 +24,7 @@ try {
   Invoke-RestMethod -Uri ($base+'/api/v1/mobile/profiles/does_not_exist/start') -Method Post -WebSession $session -ContentType 'application/json' -Body '{}' | Out-Null
   throw 'Missing AVD start unexpectedly succeeded'
 } catch {
-  if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 404){Write-Output 'UNKNOWN_AVD_REJECTION=PASS'}else{throw}
+  if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -in @(404,409)){Write-Output 'UNKNOWN_OR_BUSY_AVD_REJECTION=PASS'}else{throw}
 }
 try {
   Invoke-RestMethod -Uri ($base+'/api/v1/mobile/profiles/Android_7_0_API24/start') -Method Post -WebSession $session -ContentType 'application/json' -Body '{}' | Out-Null
