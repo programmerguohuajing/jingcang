@@ -30,6 +30,10 @@ try{
  $revoked=Invoke-RestMethod ($base+'/api/v1/mobile/nodes/'+$nodeId+'/revoke') -Method Post -WebSession $session -ContentType 'application/json' -Body '{}'
  if(-not $revoked.data.revoked){throw 'Node credential revocation failed'}
  Write-Output 'NODE_CREDENTIAL_REVOKED=PASS'
+ $revokedNodes=Invoke-RestMethod ($base+'/api/v1/mobile/nodes') -WebSession $session
+ $record=@($revokedNodes.data.nodes | Where-Object {$_.node_id -eq $nodeId})[0]
+ if(-not $record -or $record.online -or -not $record.revoked){throw 'Revoked node must immediately appear offline'}
+ Write-Output 'REVOKED_NODE_IMMEDIATELY_OFFLINE=PASS'
 }
 try {
  Invoke-RestMethod ($base+'/api/v1/mobile/nodes/'+$nodeId+'/heartbeat') -Method Post -Headers @{Authorization='Bearer '+$credential} -ContentType 'application/json' -Body $body | Out-Null

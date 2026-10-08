@@ -69,7 +69,9 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     if(!user)return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
     if(user.role!=='admin')return reply.code(403).send({success:false,error:{code:'ADMIN_ONLY'}});
     const {id}=req.params as {id:string};
+    if(!/^[A-Za-z0-9._-]{1,80}$/.test(id))return reply.code(400).send({success:false,error:{code:'INVALID_NODE_ID'}});
     const result=db.prepare('UPDATE mobile_node_credentials SET revoked_at=? WHERE node_id=? AND revoked_at IS NULL').run(new Date().toISOString(),id);
+    // Do not release READY leases on credential revocation: a stale device may still be in use.
     return {success:true,data:{revoked:result.changes>0}};
   });
   function expireIdleSessions(){
@@ -102,8 +104,10 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
   server.get('/api/v1/mobile/nodes',async(req,reply)=>{
     if(!userFor(req))return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
     const now=Date.now();
-    const rows=db.prepare('SELECT node_id,platform,started_at,last_seen_at,uptime_seconds,managed_count FROM mobile_agent_nodes ORDER BY last_seen_at DESC').all() as Array<{node_id:string;platform:string;started_at:string;last_seen_at:string;uptime_seconds:number;managed_count:number}>;
-    return {success:true,data:{nodes:rows.map(row=>({...row,online:now-Date.parse(row.last_seen_at)<45000})),staleAfterMs:45000}};
+    const rows=db.prepare(`SELECT n.node_id,n.platform,n.started_at,n.last_seen_at,n.uptime_seconds,n.managed_count,c.revoked_at
+      FROM mobile_agent_nodes n LEFT JOIN mobile_node_credentials c ON c.node_id=n.node_id
+      ORDER BY n.last_seen_at DESC`).all() as Array<{node_id:string;platform:string;started_at:string;last_seen_at:string;uptime_seconds:number;managed_count:number;revoked_at:string|null}>;
+    return {success:true,data:{nodes:rows.map(({revoked_at,...row})=>({...row,online:!revoked_at&&now-Date.parse(row.last_seen_at)<45000,revoked:!!revoked_at})),staleAfterMs:45000}};
   });
   server.get('/api/v1/mobile/devices',async(req,reply)=>{
     if(!userFor(req)) return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});

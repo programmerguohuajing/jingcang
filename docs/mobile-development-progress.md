@@ -198,5 +198,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 新增 `scripts/test-mobile-stream-lease-revocation.mjs`，仅在设备没有被租用时创建独立测试会话、打开 MJPEG、读取首帧、释放会话并验证连接停止；不会释放已有用户会话。实测首帧、释放及流终止通过；释放后仍读取两段网络已缓冲数据，不能视为新产生的帧。
 - Control API 类型检查及构建、SQLite 复合租约 4 项、Agent 心跳 4 项测试通过，开发 Docker 成功重建；Android14 冷启动仍受主机虚拟内存影响，Linux KVM/iOS 真机与 H.264/WebRTC 未验收。
 
+### 2026-10-08 · P1 节点凭证撤销立即离线
+- `/api/v1/mobile/nodes` 将节点登记与 `mobile_node_credentials` 凭证表关联，撤销状态强制 offline，即使最后心跳在 45 秒有效窗口内也不会显示在线；返回 revoked 布尔值但不返回凭证内容。
+- 管理员撤销接口新增 nodeId 格式检查。凭证撤销不会自动释放活动设备会话，避免离线/不可信节点上的设备仍在使用时被误分配。
+- `scripts/test-mobile-node-enrollment.ps1` 增加撤销后节点列表立即离线校验 `REVOKED_NODE_IMMEDIATELY_OFFLINE=PASS`；认证心跳、错误凭证拒绝、撤销后凭证拒绝及原有会话、APK、截图、浏览器回归通过，Control API 类型检查/构建、4 项节点心跳与 4 项复合租约测试通过。独立 28088 开发环境成功重建。
+- 这项是节点失联隔离的局部完善：真正跨节点设备路由、隔离设备租约恢复、H.264/WebRTC、Android14 启动、Linux KVM 和 iOS 仍未完成。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。
