@@ -112,5 +112,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 仅在本次移动开发 Docker 数据库内更新租约到期状态，不接触原 8088 平台。
 - Lint 已通过，其他动态测试依据独立开发环境可用性继续执行。
 
+### 2026-10-08 · 新 AVD 冷启动预检与活动会话保护
+- 追加 `scripts/test-mobile-avd-create.ps1` 的可选 `JINGCANG_TEST_COLD_BOOT=1` 冷启动流程：使用临时测试 AVD，轮询 Agent 生命周期、尝试正常关机，只有不冲突时执行；测试脚本不会覆盖已有 AVD。
+- **本次真实检查**：API27 的 JingCang_Test_API27_x86 已存在，保护规则拒绝覆盖；API24 配置成功创建、发现和删除，但由于 emulator-5580 仍有 READY 会话，启动被正确返回 409 DEVICE_BUSY。后续改为测试前先检查租约，输出 `AVD_COLD_BOOT_SKIPPED_DEVICE_BUSY=PASS` 而不误报启动成功。
+- 控制台在存在 emulator-5580 READY 会话时禁用 AVD 启停按钮，避免误操作。没有主动释放已有租约，没有结束原 emulator-5554。
+- TypeScript Lint 和 26 项单元测试通过；**新建 AVD 的实际启动尚未验证通过**，本次不能将自动开机任务标记完成。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

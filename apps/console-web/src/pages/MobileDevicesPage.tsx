@@ -11,6 +11,7 @@ export const MobileDevicesPage: React.FC = () => {
  const [capabilities,setCapabilities]=useState<Capability[]>([]);
  const [appiumReady,setAppiumReady]=useState(false);
  const [sessions,setSessions]=useState<Session[]>([]);
+ const managedPortBusy=sessions.some(s=>s.device_id==='emulator-5580'&&s.status==='READY');
  const [status,setStatus]=useState('loading');
  const [error,setError]=useState('');
  const [selected,setSelected]=useState<Session|null>(null);
@@ -128,7 +129,7 @@ export const MobileDevicesPage: React.FC = () => {
   {images.map(i=><div key={i.apiLevel+'-'+i.flavor+'-'+i.abi} style={{padding:9,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:7}}>Android API {i.apiLevel} · {i.flavor} · {i.abi} · 已安装 {([24,27].includes(i.apiLevel)&&i.abi==='x86'&&i.flavor==='google_apis_playstore')&&<button className="btn-secondary" onClick={()=>void createAvd(i.apiLevel)}>创建测试 AVD</button>}</div>)}
   <h2 style={{marginTop:28}}>本机已安装的 Android 模拟器配置</h2>
   <p style={{color:'var(--text-muted)'}}>展示实际存在的 AVD；仅允许删除由 JingCang 创建且没有运行的测试配置。</p>
-  {profiles.map(p=><div key={p.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{p.id}</strong> · {p.model} · API {p.apiLevel??'未知'} <button className="btn-secondary" disabled={p.lifecycle?.status==='external'} onClick={()=>void controlProfile(p,p.managed?'stop':'start')}>{p.lifecycle?.status==='external'?'外部进程占用':p.managed?'停止托管模拟器':'启动模拟器'}</button> {/^JingCang_Test_API(?:24|27)_x86$/.test(p.id)&&<button className="btn-secondary" disabled={p.managed||p.lifecycle?.status==='external'} onClick={()=>void deleteAvd(p.id)}>删除测试 AVD</button>} {p.lifecycle&&<span style={{fontSize:12,marginLeft:8}}>运行状态：{p.lifecycle.status==='ready'?'已就绪':p.lifecycle.status==='starting'?'启动中':p.lifecycle.status==='timeout'?'启动超时':p.lifecycle.status}</span>}<div style={{fontSize:12,color:'var(--text-muted)'}}>{p.systemImage}</div></div>)}
+  {profiles.map(p=><div key={p.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{p.id}</strong> · {p.model} · API {p.apiLevel??'未知'} <button className="btn-secondary" disabled={managedPortBusy||p.lifecycle?.status==='external'} onClick={()=>void controlProfile(p,p.managed?'stop':'start')}>{p.lifecycle?.status==='external'?'外部进程占用':p.managed?'停止托管模拟器':'启动模拟器'}</button> {/^JingCang_Test_API(?:24|27)_x86$/.test(p.id)&&<button className="btn-secondary" disabled={p.managed||p.lifecycle?.status==='external'} onClick={()=>void deleteAvd(p.id)}>删除测试 AVD</button>} {p.lifecycle&&<span style={{fontSize:12,marginLeft:8}}>运行状态：{p.lifecycle.status==='ready'?'已就绪':p.lifecycle.status==='starting'?'启动中':p.lifecycle.status==='timeout'?'启动超时':p.lifecycle.status}</span>}<div style={{fontSize:12,color:'var(--text-muted)'}}>{p.systemImage}</div></div>)}
   <h2 style={{marginTop:28}}>移动会话</h2>
   {sessions.filter(s=>s.status==='READY').map(s=><div key={s.id} style={{marginBottom:12,display:'flex',gap:12,alignItems:'center'}}>
    <span>{s.device_id} · {s.mode==='phone'?'完整云手机':'浏览器模式'}</span>

@@ -10,6 +10,13 @@ if(-not $login.success){throw 'Login failed'}
 $apiLevel=if($env:JINGCANG_TEST_API_LEVEL){[int]$env:JINGCANG_TEST_API_LEVEL}else{27}
 if($apiLevel -notin @(24,27)){throw 'Unsupported test API level'}
 $profileName='JingCang_Test_API'+$apiLevel+'_x86'
+if($env:JINGCANG_TEST_COLD_BOOT -eq '1'){
+ $leases=Invoke-RestMethod ($base+'/api/v1/mobile/sessions') -WebSession $web
+ if(@($leases.data | Where-Object {$_.device_id -eq 'emulator-5580' -and $_.status -eq 'READY'}).Count -gt 0){
+  Write-Output 'AVD_COLD_BOOT_SKIPPED_DEVICE_BUSY=PASS'
+  $env:JINGCANG_TEST_COLD_BOOT='0'
+ }
+}
 try{
  Invoke-RestMethod ($base+'/api/v1/mobile/profiles/create') -WebSession $web -Method Post -ContentType 'application/json' -Body '{"apiLevel":34}' | Out-Null
  throw 'Unsupported Android 14 create accepted'
@@ -39,6 +46,26 @@ try{
  $profile=Invoke-RestMethod ($base+'/api/v1/mobile/profiles') -WebSession $web
  if(@($profile.data.profiles|Where-Object {$_.id -eq $profileName}).Count -ne 1){throw 'Created AVD not discovered'}
  Write-Output 'MANAGED_AVD_DISCOVERY=PASS'
+ if($env:JINGCANG_TEST_COLD_BOOT -eq '1'){
+  $start=Invoke-RestMethod ($base+'/api/v1/mobile/profiles/'+$profileName+'/start') -WebSession $web -Method Post -ContentType 'application/json' -Body '{}'
+  Write-Output ('COLD_BOOT_REQUEST_STATUS='+$start.data.status)
+  $ready=$false
+  try{
+   for($iteration=0;$iteration -lt 24;$iteration++){
+    Start-Sleep -Seconds 5
+    $state=Invoke-RestMethod ($base+'/api/v1/mobile/profiles') -WebSession $web
+    $entry=$state.data.profiles|Where-Object {$_.id -eq $profileName}
+    $status=$entry.lifecycle.status
+    if($status -eq 'ready'){$ready=$true;break}
+    if($status -eq 'failed' -or $status -eq 'timeout'){break}
+   }
+   Write-Output ('MANAGED_AVD_BOOT_READY='+$ready)
+  }finally{
+   try{$stop=Invoke-RestMethod ($base+'/api/v1/mobile/profiles/'+$profileName+'/stop') -WebSession $web -Method Post -ContentType 'application/json' -Body '{}';Write-Output ('MANAGED_AVD_STOP='+$stop.success)}catch{Write-Output ('MANAGED_AVD_STOP_ERROR='+$_.Exception.Message)}
+   Start-Sleep -Seconds 8
+  }
+  if(-not $ready){throw 'Created AVD failed real boot verification'}
+ }
 }finally{
  if($created){
   $deleted=Invoke-RestMethod ($base+'/api/v1/mobile/profiles/'+$profileName+'/delete') -Method Post -WebSession $web -ContentType 'application/json' -Body '{}'
