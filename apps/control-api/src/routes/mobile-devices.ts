@@ -12,11 +12,15 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     id TEXT PRIMARY KEY, device_id TEXT NOT NULL, user_id TEXT NOT NULL,
     mode TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
-  );
-  CREATE UNIQUE INDEX IF NOT EXISTS idx_mobile_device_active
-    ON mobile_sessions(device_id) WHERE status='READY';`);
+  );`);
   const sessionColumns=db.prepare('PRAGMA table_info(mobile_sessions)').all() as Array<{name:string}>;
   if(!sessionColumns.some(column=>column.name==='node_id'))db.exec("ALTER TABLE mobile_sessions ADD COLUMN node_id TEXT NOT NULL DEFAULT 'windows-local-dev'");
+  db.exec('BEGIN IMMEDIATE');
+  try{
+    db.exec('DROP INDEX IF EXISTS idx_mobile_device_active');
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_mobile_node_device_active ON mobile_sessions(node_id,device_id) WHERE status='READY'");
+    db.exec('COMMIT');
+  }catch(error){db.exec('ROLLBACK');throw error;}
   db.exec(`CREATE TABLE IF NOT EXISTS mobile_agent_nodes (node_id TEXT PRIMARY KEY, platform TEXT NOT NULL, started_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, uptime_seconds INTEGER NOT NULL DEFAULT 0, managed_count INTEGER NOT NULL DEFAULT 0);`);
   function expireIdleSessions(){
     const threshold=new Date(Date.now()-2*60*60*1000).toISOString();

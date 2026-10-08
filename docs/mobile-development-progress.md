@@ -170,5 +170,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 已在隔离 28088 环境验证旧会话 node_id 迁移及未配置节点拒绝：SESSION_NODE_OWNERSHIP_MIGRATION=PASS、UNKNOWN_NODE_ROUTING_REJECTION=PASS；节点登记、活动会话心跳、租约保护检查均通过。Lint、26 项既有单元测试与 Build 均通过；原 8088 服务保持 HTTP 200。
 - 注意：这只是多节点模型的兼容性基础；唯一索引、租约分配、设备路由与多个 Agent 的凭证隔离尚未升级为真正多节点生产调度，不能标记多节点 P1 完成。
 
+### 2026-10-08 · P1 节点与设备复合唯一租约约束
+- 将 SQLite 的旧唯一索引 `idx_mobile_device_active(device_id)` 升级为 `idx_mobile_node_device_active(node_id,device_id)`（仅 READY 状态），使用 BEGIN IMMEDIATE/COMMIT 和失败 ROLLBACK，保留历史会话与 node_id 兼容迁移。
+- 新增 `scripts/test-mobile-node-lease-index.mjs` 专项内存数据库回归：旧数据默认节点迁移、同节点同设备重复 READY 租约拒绝、不同节点相同序列号可并存、旧唯一索引删除，全部 PASS。
+- 独立 28088 环境重建成功，旧会话迁移、未知节点拒绝、原有会话心跳与设备保护回归通过，28088/8088 健康检查均 HTTP 200。Control API 独立类型检查通过；完整并行 Lint 曾因 Windows 主机可用虚拟内存仅约 1.5GB 而出现 Node OOM，容器构建和专项 SQLite 测试通过。
+- 注意：当前 Agent 路由仍固定到 windows-local-dev，未开放跨节点租用；独立 Agent 身份认证、设备路由与安全回收仍属 P1 待完成任务。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。
