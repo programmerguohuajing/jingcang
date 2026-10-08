@@ -36,5 +36,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 独立 Docker 开发环境重新构建成功，端到端验证读取到 6 个第三方 App；基础会话与浏览器冒烟测试继续通过。
 - **尚未实现 APK 上传安装/卸载和 Appium；新增加的启动/停止按钮还需人工交互验收。**
 
+### 2026-10-08 · APK 安装 PoC
+- 移动会话新增 APK 上传及安装入口：限制大小 8MB，验证 ZIP/APK 标记，后端检查会话所有权并通过受保护的 Agent 转发。
+- Windows Agent 采用独立临时目录执行 ADB 安装，结束后删除临时文件；不允许由调用者指定宿主文件路径或命令。
+- 端到端冒烟测试通过非法 APK 拒绝；**真实 APK 安装成功仍待使用已授权兼容测试包验收**。
+- 本机系统镜像仅发现 Android 4.4～8.1 部分镜像，Android 14 和 Appium 尚未配置；不宣称对应版本已实现。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

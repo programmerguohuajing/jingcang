@@ -26,6 +26,13 @@ try {
     if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 409) { Write-Output 'EXCLUSIVE_DEVICE_LEASE=PASS' }
     else { throw }
   }
+  try {
+    Invoke-RestMethod -Uri ($base+'/api/v1/mobile/sessions/'+$id+'/install') -Method Post -WebSession $session -ContentType 'application/json' -Body '{"base64":"invalid"}' | Out-Null
+    throw 'Invalid APK was accepted'
+  } catch {
+    if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 400) {Write-Output 'INVALID_APK_REJECTION=PASS'}
+    else {throw}
+  }
   $appList=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/sessions/'+$id+'/apps') -WebSession $session
   if (-not $appList.success -or $null -eq $appList.data.packages) {throw 'App listing failed'}
   Write-Output ('INSTALLED_THIRD_PARTY_APPS='+@($appList.data.packages).Count)

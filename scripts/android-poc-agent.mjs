@@ -1,6 +1,9 @@
 import http from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 const exec = promisify(execFile);
 const host = process.env.JINGCANG_ANDROID_AGENT_HOST || '127.0.0.1';
@@ -33,11 +36,11 @@ function send(res, status, data) {
   res.writeHead(status, { 'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store' });
   res.end(JSON.stringify(data));
 }
-async function jsonBody(req) {
+async function jsonBody(req, limit = 4096) {
   let data='';
   for await (const chunk of req) {
     data+=chunk;
-    if (data.length>4096) throw Error('Request too large');
+    if (data.length>limit) throw Error('Request too large');
   }
   return JSON.parse(data || '{}');
 }
@@ -49,7 +52,7 @@ http.createServer(async(req,res)=>{
   if(req.method==='GET' && url.pathname==='/health') return send(res,200,{status:'ok',platform:process.platform});
   try {
     if(req.method==='GET' && url.pathname==='/devices') return send(res,200,{devices:await devices()});
-    const match=/^\/devices\/([^/]+)\/(screenshot|action|apps)$/.exec(url.pathname);
+    const match=/^\/devices\/([^/]+)\/(screenshot|action|apps|install)$/.exec(url.pathname);
     if (!match || !validSerial(match[1])) return send(res,404,{error:'NOT_FOUND'});
     const serial=match[1];
     const found=(await devices()).find(d=>d.id===serial && d.state==='device');
@@ -58,6 +61,19 @@ http.createServer(async(req,res)=>{
       const result=await adbText(['-s',serial,'shell','pm','list','packages','-3']);
       const packages=result.split(/\r?\n/).filter(x=>x.startsWith('package:')).map(x=>x.slice(8)).filter(x=>/^[a-zA-Z][a-zA-Z0-9_.]{1,180}$/.test(x));
       return send(res,200,{packages});
+    }
+    if(req.method==='POST' && match[2]==='install'){
+      const body=await jsonBody(req,12*1024*1024);
+      if(typeof body.base64!=='string' || body.base64.length>11*1024*1024 || !/^[A-Za-z0-9+/]+={0,2}$/.test(body.base64)) return send(res,400,{error:'INVALID_APK'});
+      const bytes=Buffer.from(body.base64,'base64');
+      if(bytes.length<128 || bytes.length>8*1024*1024 || bytes.subarray(0,4).toString('hex')!=='504b0304' || !bytes.includes(Buffer.from('AndroidManifest.xml'))) return send(res,400,{error:'INVALID_APK'});
+      const directory=await mkdtemp(path.join(tmpdir(),'jc-apk-'));
+      try{
+        const apk=path.join(directory,'test.apk');
+        await writeFile(apk,bytes,{flag:'wx'});
+        const result=await adbText(['-s',serial,'install','-r',apk]);
+        return send(res,200,{success:true,result:result.slice(0,500)});
+      }finally{await rm(directory,{recursive:true,force:true});}
     }
     if(req.method==='GET' && match[2]==='screenshot'){
       const {stdout}=await command(['-s',serial,'exec-out','screencap','-p'],12*1024*1024);

@@ -25,7 +25,7 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
   function userFor(req:any){const token=req.cookies.jc_token || req.headers.authorization?.replace('Bearer ',''); return auth.getUserFromToken(token||'');}
   async function agent(path:string, options:RequestInit={}){
     if(!agentUrl||!agentToken) throw new Error('AGENT_NOT_CONFIGURED');
-    const result=await fetch(new URL(path,agentUrl),{...options,headers:{...options.headers,Authorization:'Bearer '+agentToken},signal:AbortSignal.timeout(15000)});
+    const result=await fetch(new URL(path,agentUrl),{...options,headers:{...options.headers,Authorization:'Bearer '+agentToken},signal:AbortSignal.timeout(path.endsWith('/install') ? 120000 : 15000)});
     return result;
   }
   server.get('/api/v1/mobile/devices',async(req,reply)=>{
@@ -97,6 +97,18 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     try{
       const response=await agent('/devices/'+encodeURIComponent(row.device_id)+'/apps');
       if(!response.ok)throw Error('APP_LIST_FAILED');
+      touchSession(row.id);
+      return {success:true,data:await response.json()};
+    }catch{return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
+  });
+  server.post('/api/v1/mobile/sessions/:id/install', {bodyLimit: 12*1024*1024}, async(req,reply)=>{
+    const row=await owner(req,reply);if(!row)return;
+    if(row.status!=='READY')return reply.code(409).send({success:false});
+    const payload=req.body as {base64?:unknown};
+    if(typeof payload?.base64!=='string' || payload.base64.length>11*1024*1024 || payload.base64.length<100) return reply.code(400).send({success:false,error:{code:'INVALID_APK'}});
+    try{
+      const response=await agent('/devices/'+encodeURIComponent(row.device_id)+'/install',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base64:payload.base64})});
+      if(!response.ok)return reply.code(response.status).send({success:false,error:{code:'INSTALL_FAILED'}});
       touchSession(row.id);
       return {success:true,data:await response.json()};
     }catch{return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
