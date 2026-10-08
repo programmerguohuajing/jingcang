@@ -4,15 +4,18 @@ import { promisify } from 'node:util';
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir, homedir } from 'node:os';
 import path from 'node:path';
+import {appiumDiagnostics,runChromeSmoke} from './android-webdriver-automation.mjs';
 
 const exec = promisify(execFile);
 const managedAvds = new Map();
 const MANAGED_SERIAL = 'emulator-5580';
 const STARTUP_TIMEOUT_MS = 120000;
 let lifecycleBusy = false;
+const automationBusy = new Set();
 async function managedStatus(name){
   const entry=managedAvds.get(name);
   if(!entry)return null;
+  if(entry.status==='failed')return {status:'failed',serial:MANAGED_SERIAL,errorCode:'EMULATOR_PROCESS_EXITED'};
   const online=(await devices()).find(d=>d.id===MANAGED_SERIAL);
   if(online?.booted){entry.status='ready';return {status:'ready',serial:MANAGED_SERIAL};}
   if(Date.now()-entry.startedAt>STARTUP_TIMEOUT_MS){
@@ -91,7 +94,8 @@ http.createServer(async(req,res)=>{
         ]);
         diagnostics.push({id:serial,apiLevel:Number(props[0])||null,abi:props[1],chromeInstalled:props[2].includes('package:'),securityPatch:props[3],appiumStatus:'not-verified'});
       }
-      return send(res,200,{diagnostics,appiumHostAvailable:false,automationReady:false,note:'Appium driver and independent WebDriver session are not yet installed or verified'});
+      const appium=await appiumDiagnostics();
+      return send(res,200,{diagnostics,appiumHostAvailable:appium.available,appiumVersion:appium.version,chromedriverInstalled:appium.chromeDriverInstalled,automationReady:appium.available&&appium.chromeDriverInstalled,note:'Availability describes the host toolchain only; device-specific Chrome versions still require compatible Chromedriver.'});
     }
     if(req.method==='GET' && url.pathname==='/devices') return send(res,200,{devices:await devices()});
     if(req.method==='GET' && url.pathname==='/profiles'){
@@ -99,7 +103,7 @@ http.createServer(async(req,res)=>{
       const external=(await devices()).find(d=>d.id===MANAGED_SERIAL);
       let externalName='';
       if(external)externalName=(await adbText(['-s',MANAGED_SERIAL,'emu','avd','name']).catch(()=>'' )).split(/\r?\n/)[0].trim();
-      return send(res,200,{profiles:await Promise.all(current.map(async p=>({...p,managed:managedAvds.has(p.id),lifecycle:await managedStatus(p.id) || (p.id===externalName?{status:'external',serial:MANAGED_SERIAL}:null)})))});
+      return send(res,200,{profiles:await Promise.all(current.map(async p=>({...p,managed:managedAvds.has(p.id)&&managedAvds.get(p.id)?.status!=='failed',lifecycle:await managedStatus(p.id) || (p.id===externalName?{status:'external',serial:MANAGED_SERIAL}:null)})))});
     }
     const avdAction=/^\/profiles\/([A-Za-z0-9._-]{1,80})\/(start|stop)$/.exec(url.pathname);
     if(req.method==='POST' && avdAction){
@@ -119,25 +123,35 @@ http.createServer(async(req,res)=>{
         managedAvds.delete(name);
         return send(res,200,{success:true,status:'stopping'});
       }
+      if(managedAvds.get(name)?.status==='failed')managedAvds.delete(name);
       if(managedAvds.has(name))return send(res,409,{error:'ALREADY_MANAGED'});
       const online=(await devices()).filter(x=>x.id.startsWith('emulator-'));
       for(const current of online){const activeName=await adbText(['-s',current.id,'emu','avd','name']).catch(()=>'');if(activeName.split(/\r?\n/)[0].trim()===name)return send(res,409,{error:'AVD_ALREADY_RUNNING'});}
       if(online.some(x=>x.id==='emulator-5580'))return send(res,409,{error:'PORT_IN_USE'});
       const list=await profiles();
       if(!list.some(p=>p.id===name))return send(res,404,{error:'AVD_NOT_FOUND'});
-      if(managedAvds.size>=1)return send(res,409,{error:'POC_EMULATOR_LIMIT'});
-      const child=spawn(emulator,['-avd',name,'-port','5580','-no-snapshot-save'],{detached:false,stdio:'ignore',windowsHide:true});
-      child.on('error',()=>{if(managedAvds.get(name)?.child===child)managedAvds.delete(name);});
-      child.on('exit',()=>{if(managedAvds.get(name)?.child===child)managedAvds.delete(name);});
-      managedAvds.set(name,{child,status:'starting',startedAt:Date.now()});
+      if([...managedAvds.values()].some(v=>v.status!=='failed'))return send(res,409,{error:'POC_EMULATOR_LIMIT'});
+      const child=spawn(emulator,['-avd',name,'-port','5580','-no-snapshot-save'],{detached:false,stdio:['ignore','ignore','pipe'],windowsHide:true});
+      const entry={child,status:'starting',startedAt:Date.now(),error:''};
+      child.stderr.on('data',chunk=>{entry.error=(entry.error+String(chunk)).slice(-900);});
+      child.on('error',error=>{if(managedAvds.get(name)?.child===child){entry.status='failed';entry.error=String(error.message);}});
+      child.on('exit',(code,signal)=>{if(managedAvds.get(name)?.child===child){entry.status='failed';entry.error=('Process exit '+code+' '+(signal||'')+' '+entry.error).slice(-900);}});
+      managedAvds.set(name,entry);
       return send(res,202,{success:true,status:'starting',serial:MANAGED_SERIAL});
       }finally{lifecycleBusy=false;}
     }
-    const match=/^\/devices\/([^/]+)\/(screenshot|action|apps|install)$/.exec(url.pathname);
+    const match=/^\/devices\/([^/]+)\/(screenshot|action|apps|install|automation)$/.exec(url.pathname);
     if (!match || !validSerial(match[1])) return send(res,404,{error:'NOT_FOUND'});
     const serial=match[1];
     const found=(await devices()).find(d=>d.id===serial && d.state==='device');
     if (!found) return send(res,404,{error:'DEVICE_OFFLINE'});
+    if(req.method==='POST' && match[2]==='automation'){
+      if(automationBusy.has(serial))return send(res,409,{error:'AUTOMATION_ALREADY_RUNNING'});
+      automationBusy.add(serial);
+      try{return send(res,200,await runChromeSmoke(serial));}
+      catch(error){return send(res,503,{success:false,error:'AUTOMATION_FAILED',message:String(error.message||error).slice(0,350)});}
+      finally{automationBusy.delete(serial);}
+    }
     if(req.method==='GET' && match[2]==='apps'){
       const result=await adbText(['-s',serial,'shell','pm','list','packages','-3']);
       const packages=result.split(/\r?\n/).filter(x=>x.startsWith('package:')).map(x=>x.slice(8)).filter(x=>/^[a-zA-Z][a-zA-Z0-9_.]{1,180}$/.test(x));
@@ -162,6 +176,7 @@ http.createServer(async(req,res)=>{
       return res.end(stdout);
     }
     if(req.method==='POST' && match[2]==='action'){
+      if(automationBusy.has(serial))return send(res,409,{error:'AUTOMATION_RUNNING'});
       const body=await jsonBody(req);
       if(body.type==='key' && allowedKeys.has(body.key)){
         await adbText(['-s',serial,'shell','input','keyevent',keyCodes[body.key]]);

@@ -76,5 +76,16 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - Lint、26 项单元测试和 Build 通过，独立 Docker 重新构建。端到端确认 1 台设备返回能力诊断，接口成功；原有设备由活动会话占用，测试脚本安全跳过创建新会话。
 - 待执行：Appium 工具链安装与 UiAutomator2 驱动兼容性测试、真实网页自动化脚本、安卓新系统镜像管理、实时流媒体、iOS Mac Agent。
 
+### 2026-10-08 · Appium 与 Android Chrome 自动化实测及平台接入
+- 在 `D:\\codex\\jingcang-mobile-toolchain` 独立安装 Appium 3.8.0；在 `D:\\codex\\jingcang-mobile-appium-home` 安装 UiAutomator2 8.7.0 驱动。Android Studio JBR 25 被复用，无需修改全局 JAVA_HOME。
+- Appium Doctor：**0 required fixes**，另有 3 项可选依赖（bundletool、ffmpeg、GStreamer）待完善。
+- 测试设备 Pixel_2：Android 8.1/API27，Chrome 101；另装匹配官方 ChromeDriver 101.0.4951.41，位于独立 toolchain 目录，不改原来 Selenium 浏览器镜像。
+- **实际成功**：Appium 原生 UiAutomator2 session 创建、页面 UI 树读取、Chrome WebDriver session 创建、打开 https://example.com 页面。`scripts/test-appium-android.mjs` 返回 TEST_NATIVE=true / TEST_CHROME=true。
+- 开发分支增加 `scripts/android-webdriver-automation.mjs`（预设公开页面 smoke，不接受任意内网 URL），Agent `/devices/:serial/automation`，受权限保护的 Control API `POST /api/v1/mobile/sessions/:id/automation`，浏览器模式的前端执行按钮。
+- 仅移动开发环境使用 `deploy/nginx/nginx.mobile-dev.conf`，为较长的 Appium 调用设置超时；原有 `deploy/nginx/nginx.conf` 和 8088 环境不改动。
+- 新增 `scripts/setup-mobile-appium.ps1` / `run-mobile-appium.ps1` / `test-appium-integration.ps1`，记录可复现安装及测试流程。
+- **平台端到端仍未通过最终验收**：第一次调用因 ChromeDriver 内部 ADB 命令超时及原 Nginx 60 秒超时返回 504；后续修复代理超时后，设备出现另一条 READY 租约（并非已释放的测试会话），未擅自删除该租约，因此无法重新分配。同一期间 Agent 启动 Pixel_2 有一次提前退出，已加强失败状态记录，但需继续复验。
+- 后续优先补齐：工具链/Agent 启动的持久化与回收、异步自动化任务/超时、安全隔离、Android 新系统版本镜像、低延迟画面，然后 Android 真机与 iOS Mac Agent。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

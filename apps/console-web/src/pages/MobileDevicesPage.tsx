@@ -7,6 +7,7 @@ export const MobileDevicesPage: React.FC = () => {
  const [devices,setDevices]=useState<Device[]>([]);
  const [profiles,setProfiles]=useState<Profile[]>([]);
  const [capabilities,setCapabilities]=useState<Capability[]>([]);
+ const [appiumReady,setAppiumReady]=useState(false);
  const [sessions,setSessions]=useState<Session[]>([]);
  const [status,setStatus]=useState('loading');
  const [error,setError]=useState('');
@@ -16,11 +17,13 @@ export const MobileDevicesPage: React.FC = () => {
  const [typed,setTyped]=useState('');
  const [apps,setApps]=useState<string[]>([]);
  const [installing,setInstalling]=useState(false);
+ const [automating,setAutomating]=useState(false);
+ const [automationResult,setAutomationResult]=useState('');
  const pointerStart=useRef<{x:number;y:number;time:number}|null>(null);
  const refresh=useCallback(async()=>{
   try{
    const [r,s,p,c]=await Promise.all([fetch('/api/v1/mobile/devices'),fetch('/api/v1/mobile/sessions'),fetch('/api/v1/mobile/profiles'),fetch('/api/v1/mobile/capabilities')]);
-   if(c.ok){const data=await c.json();setCapabilities(data.data?.diagnostics||[]);}
+   if(c.ok){const data=await c.json();setCapabilities(data.data?.diagnostics||[]);setAppiumReady(Boolean(data.data?.automationReady));}else{setCapabilities([]);setAppiumReady(false);}
    if(p.ok){const profilePayload=await p.json();setProfiles(profilePayload.data?.profiles||[]);}
    if(!r.ok||!s.ok)throw Error('登录已失效或服务不可用');
    const a=await r.json(), b=await s.json();
@@ -53,6 +56,17 @@ export const MobileDevicesPage: React.FC = () => {
   if(!response.ok)setError(payload.error?.error||'操作失败');
   else setError('');
   await refresh();
+ }
+ async function runAutomation(){
+  if(!selected||automating)return;
+  setAutomating(true);setAutomationResult('');setError('');
+  try{
+    const response=await fetch('/api/v1/mobile/sessions/'+encodeURIComponent(selected.id)+'/automation',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const result=await response.json();
+    if(!response.ok)throw Error(result.error?.message||result.error?.code||'自动化测试失败');
+    setAutomationResult('测试通过 · 页面标题：'+result.data.title+' · 耗时 '+result.data.durationMs+'ms');
+  }catch(e){setError('Appium 自动化失败：'+String(e));}
+  finally{setAutomating(false);}
  }
  async function loadApps(){
   if(!selected)return;
@@ -90,9 +104,9 @@ export const MobileDevicesPage: React.FC = () => {
    </section>)}
   </div>
   {devices.length===0&&<p>暂无在线 Android 设备，请检查 Windows Agent、ADB 与 Docker 连通性。</p>}
-  <h2 style={{marginTop:28}}>自动化环境诊断</h2>
+  <h2 style={{marginTop:28}}>自动化环境诊断</h2><p>Appium 工具链：{appiumReady?'已连接（设备兼容性须实测）':'未就绪'}</p>
   <p style={{color:'var(--text-muted)'}}>展示实际检测结果，不代表 Appium 已安装或可以运行测试。</p>
-  {capabilities.map(c=><div key={c.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{c.id}</strong> · API {c.apiLevel??'未知'} · {c.abi} · Chrome：{c.chromeInstalled?'已安装':'未安装'} · Appium：尚未验证</div>)}
+  {capabilities.map(c=><div key={c.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{c.id}</strong> · API {c.apiLevel??'未知'} · {c.abi} · Chrome：{c.chromeInstalled?'已安装':'未安装'} · Appium：{appiumReady?'主机工具链在线':'不可用'}</div>)}
   <h2 style={{marginTop:28}}>本机已安装的 Android 模拟器配置</h2>
   <p style={{color:'var(--text-muted)'}}>仅展示真实存在的 AVD，系统镜像尚未自动创建或安装。</p>
   {profiles.map(p=><div key={p.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{p.id}</strong> · {p.model} · API {p.apiLevel??'未知'} <button className="btn-secondary" disabled={p.lifecycle?.status==='external'} onClick={()=>void controlProfile(p,p.managed?'stop':'start')}>{p.lifecycle?.status==='external'?'外部进程占用':p.managed?'停止托管模拟器':'启动模拟器'}</button> {p.lifecycle&&<span style={{fontSize:12,marginLeft:8}}>运行状态：{p.lifecycle.status==='ready'?'已就绪':p.lifecycle.status==='starting'?'启动中':p.lifecycle.status==='timeout'?'启动超时':p.lifecycle.status}</span>}<div style={{fontSize:12,color:'var(--text-muted)'}}>{p.systemImage}</div></div>)}
@@ -104,6 +118,7 @@ export const MobileDevicesPage: React.FC = () => {
   {selected&&<section style={{marginTop:24,border:'1px solid var(--nav-border)',borderRadius:12,padding:20}}>
    <h3>远程控制：{selected.device_id}</h3>
    <p style={{fontSize:12}}>画面定时截图更新；支持点击、滑动、导航按键与简单英文输入（PoC 模式，非实时视频）。</p>
+   {selected.mode==='browser'&&<div style={{marginBottom:12}}><button className="btn-secondary" disabled={automating||!appiumReady} onClick={()=>void runAutomation()}>{automating?'Appium 自动化执行中…':'执行 Chrome 示例自动化'}</button> {automationResult&&<span role="status" style={{color:'#059669'}}>{automationResult}</span>}<p style={{fontSize:12}}>自动运行预设 https://example.com/ 页面标题检查，使用设备的独立 WebDriver 会话。</p></div>}
    {shot&&<img src={shot} alt="Android 设备画面" style={{display:'block',maxWidth:'100%',maxHeight:650,cursor:'crosshair',margin:'auto',touchAction:'none'}}
     onPointerDown={e=>{const b=e.currentTarget.getBoundingClientRect();pointerStart.current={x:Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y:Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight),time:Date.now()};e.currentTarget.setPointerCapture(e.pointerId);}}
     onPointerUp={e=>{const start=pointerStart.current;pointerStart.current=null;if(!start)return;const b=e.currentTarget.getBoundingClientRect();const x=Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y=Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight);if(Math.hypot(x-start.x,y-start.y)<15)void action({type:'tap',x,y});else void action({type:'swipe',x1:start.x,y1:start.y,x2:x,y2:y,duration:Math.max(100,Math.min(2000,Date.now()-start.time))});}}

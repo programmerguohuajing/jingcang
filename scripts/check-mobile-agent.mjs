@@ -6,3 +6,7 @@ console.log('AGENT_HTTP='+r.status);
 const j=await r.json();
 console.log('DEVICE_COUNT='+((j.devices||[]).length));
 if(!r.ok)process.exitCode=1;
+const caps=await fetch(new URL('/capabilities',base),{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(25000)});
+console.log('CAPABILITIES_HTTP='+caps.status);
+if(caps.ok){const result=await caps.json();console.log('APPIUM_HOST_AVAILABLE='+result.appiumHostAvailable);console.log('CHROMEDRIVER_INSTALLED='+result.chromedriverInstalled);console.log('AUTOMATION_TOOLCHAIN_READY='+result.automationReady);}
+else process.exitCode=1;

@@ -43,6 +43,21 @@ if ($env:JINGCANG_TEST_AVD_BOOT -eq '1') {
       if($managed.lifecycle.status -eq 'timeout') {break}
     }
     Write-Output ('AVD_COLD_BOOT_READY='+$booted)
+    if($booted -and $env:JINGCANG_TEST_APPIUM -eq '1') {
+      $env:JINGCANG_TEST_SERIAL='emulator-5580'
+      node (Join-Path $PSScriptRoot 'test-appium-android.mjs')
+      if ($LASTEXITCODE -ne 0) { throw 'Appium smoke test failed' }
+      $browserSession=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/sessions') -Method Post -WebSession $session -ContentType 'application/json' -Body (@{deviceId='emulator-5580';mode='browser';startUrl='https://example.com'}|ConvertTo-Json)
+      if (-not $browserSession.success) { throw 'Mobile browser lease creation failed' }
+      try {
+        $automation=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/sessions/'+$browserSession.data.id+'/automation') -Method Post -WebSession $session -ContentType 'application/json' -Body '{}'
+        if (-not $automation.success -or -not $automation.data.title) {throw 'Browser automation endpoint did not return a title'}
+        Write-Output ('JINGCANG_MOBILE_CHROME_AUTOMATION=PASS TITLE='+$automation.data.title)
+      }finally {
+        $done=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/sessions/'+$browserSession.data.id) -Method Delete -WebSession $session
+        Write-Output ('AUTOMATION_SESSION_RELEASE='+$done.success)
+      }
+    }
   }finally{
     $stopped=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/profiles/'+$target+'/stop') -Method Post -WebSession $session -ContentType 'application/json' -Body '{}'
     Write-Output ('MANAGED_AVD_STOP='+$stopped.success)
