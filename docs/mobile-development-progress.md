@@ -137,5 +137,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 全项目 Lint、26 项单元测试和 Build 通过；独立 Docker 重建成功，未登录心跳返回 HTTP 401，28088 和原有 8088 均返回 200。尚需使用新建的专用移动会话进行心跳成功/过期的端到端回归。
 - P0 新增 `scripts/install-android14-image.ps1`，限定 Android 官方 `system-images;android-34;google_apis;x86_64` 并在安装后检查 system.img。SDK Command-Line Tools 原始下载来自 Android 开发者页面列出的 Windows 官方 ZIP，预期 SHA-256 `90ae805d20434428bffcb699c290860f19bb5f66a67e6b330067e3de801fb04a`；本次网络下载较慢，**Android 14 镜像并未安装或验收**。
 
+### 2026-10-08 · Android 14 官方系统镜像安装与 AVD 验证
+- 官方 Windows Android Command-Line Tools ZIP `commandlinetools-win-15859902_latest.zip` 已完整获取并通过 SHA-256 `90ae805d20434428bffcb699c290860f19bb5f66a67e6b330067e3de801fb04a` 校验，成功安装 sdkmanager。增加 `scripts/setup-android-sdk-cli.ps1` 可重复安装脚本。
+- 通过 `scripts/install-android14-image.ps1` 安装官方 `system-images;android-34;google_apis;x86_64`，真实 system.img 存在（4,306,501,632 字节），SDK Manager 安装流程返回 `ANDROID_14_IMAGE_INSTALLED=PASS`。
+- Windows Agent 和 Control API/前端已支持创建、发现和删除 `JingCang_Test_API34_x86_64`（仅镜像确实安装时展示）；API34 CREATE、DISCOVERY、DELETE 和管理员会话心跳真实回归全部 PASS，原有 AVD 不被改变。
+- 修复 AVD 创建器从旧 Pixel_2 模板继承 `abi.type=x86` / `hw.cpu.arch=x86` 的架构错误，新 AVD 配置现在同时设置 `abi.type=x86_64`、`hw.cpu.arch=x86_64`、`tag.id=google_apis`，启动器正确选择 qemu-system-x86_64-headless。
+- **Android 14 冷启动尚未通过**：Windows WHPX 执行时曾报告 `Unexpected VP exit code 4`；架构修复后 QEMU 又报告 `VirtualAlloc failed`，当时系统可用虚拟内存约 4.8GB，设备未达到 sys.boot_completed=1。已停止仅该 Android14 测试进程并通过受控 API 清理测试 AVD，保留 emulator-5554 及其他三个原有 AVD。
+- AVD 删除改为先尝试处理 `multiinstance.lock`：被模拟器持有时拒绝删除，避免先删配置再碰到 Windows 文件锁造成部分删除。新增 `scripts/test-android14-cold-boot.ps1`，以隔离端口 5584 测试并尽力回收；测试失败时必须明确保留 FAIL，不得宣称 Android14 可开机。
+- 剩余：解决 Windows 虚拟内存或 WHPX 资源问题后重测；验证联网/Chrome/ADB；Android14 的多实例调度和生产化、Appium 全链路及 H.264 流媒体仍未完成。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

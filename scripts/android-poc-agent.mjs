@@ -127,10 +127,11 @@ http.createServer(async(req,res)=>{
       lifecycleBusy=true;
       try{
         const body=await jsonBody(req);
-        if(!Number.isInteger(body.apiLevel)||![24,27].includes(body.apiLevel))return send(res,400,{error:'UNSUPPORTED_IMAGE'});
-        const image=(await systemImages()).find(x=>x.apiLevel===body.apiLevel&&x.abi==='x86'&&x.flavor==='google_apis_playstore');
+        if(!Number.isInteger(body.apiLevel)||![24,27,34].includes(body.apiLevel))return send(res,400,{error:'UNSUPPORTED_IMAGE'});
+        const desired=body.apiLevel===34?{abi:'x86_64',flavor:'google_apis'}:{abi:'x86',flavor:'google_apis_playstore'};
+        const image=(await systemImages()).find(x=>x.apiLevel===body.apiLevel&&x.abi===desired.abi&&x.flavor===desired.flavor);
         if(!image)return send(res,409,{error:'IMAGE_NOT_INSTALLED'});
-        const name='JingCang_Test_API'+body.apiLevel+'_x86';
+        const name='JingCang_Test_API'+body.apiLevel+'_'+image.abi;
         const avdRoot=path.join(homedir(),'.android','avd');
         const targetDir=path.join(avdRoot,name+'.avd');
         const iniPath=path.join(avdRoot,name+'.ini');
@@ -138,8 +139,8 @@ http.createServer(async(req,res)=>{
         const templatePath=path.join(avdRoot,'Pixel_2.avd','config.ini');
         const template=await readFile(templatePath,'utf8');
         if(!template.includes('image.sysdir.1='))return send(res,503,{error:'TEMPLATE_UNAVAILABLE'});
-        const config=template.split(/\r?\n/).filter(line=>!/^AvdId=|^avd.ini.displayname=|^image.sysdir.1=|^fastboot\./.test(line)).join('\n')
-          +'\nAvdId='+name+'\navd.ini.displayname='+name+'\nimage.sysdir.1=system-images\\android-'+body.apiLevel+'\\'+image.flavor+'\\'+image.abi+'\\\nfastboot.forceColdBoot=yes\n';
+        const config=template.split(/\r?\n/).filter(line=>!/^AvdId=|^avd.ini.displayname=|^image.sysdir.1=|^abi.type=|^hw.cpu.arch=|^tag.id=|^fastboot\./.test(line)).join('\n')
+          +'\nAvdId='+name+'\navd.ini.displayname='+name+'\nabi.type='+image.abi+'\nhw.cpu.arch='+image.abi+'\ntag.id='+image.flavor+'\nimage.sysdir.1=system-images\\android-'+body.apiLevel+'\\'+image.flavor+'\\'+image.abi+'\\\nfastboot.forceColdBoot=yes\n';
         await mkdir(targetDir,{recursive:false});
         try{
           await writeFile(path.join(targetDir,'config.ini'),config,{flag:'wx'});
@@ -149,7 +150,7 @@ http.createServer(async(req,res)=>{
         return send(res,201,{success:true,id:name,apiLevel:body.apiLevel});
       }finally{lifecycleBusy=false;}
     }
-    const removeProfile=/^\/profiles\/(JingCang_Test_API(?:24|27)_x86)\/delete$/.exec(url.pathname);
+    const removeProfile=/^\/profiles\/(JingCang_Test_API(?:24|27)_x86|JingCang_Test_API34_x86_64)\/delete$/.exec(url.pathname);
     if(req.method==='POST' && removeProfile){
       if(lifecycleBusy)return send(res,409,{error:'LIFECYCLE_BUSY'});
       lifecycleBusy=true;
@@ -164,7 +165,12 @@ http.createServer(async(req,res)=>{
           const runningName=await adbText(['-s',device.id,'emu','avd','name']).catch(()=>'');
           if(runningName.split(/\r?\n/)[0].trim()===name)return send(res,409,{error:'AVD_RUNNING'});
         }
-        await rm(directory,{recursive:true,force:true});
+        // Refuse deletion if Windows Emulator still holds its instance lock.
+        // Remove the lock first: a locked handle fails atomically before touching AVD data.
+        try{await rm(path.join(directory,'multiinstance.lock'),{force:true});}
+        catch{return send(res,409,{error:'AVD_FILE_LOCKED'});}
+        try{await rm(directory,{recursive:true,force:true});}
+        catch(error){return send(res,409,{error:'AVD_FILES_BUSY',message:String(error.code||'FILE_BUSY')});}
         await rm(path.join(base,name+'.ini'),{force:true});
         return send(res,200,{success:true,id:name});
       }finally{lifecycleBusy=false;}

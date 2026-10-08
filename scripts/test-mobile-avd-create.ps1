@@ -8,8 +8,9 @@ $web=New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $login=Invoke-RestMethod ($base+'/api/v1/auth/login') -Method Post -WebSession $web -ContentType 'application/json' -Body (@{username='admin';password=$password}|ConvertTo-Json)
 if(-not $login.success){throw 'Login failed'}
 $apiLevel=if($env:JINGCANG_TEST_API_LEVEL){[int]$env:JINGCANG_TEST_API_LEVEL}else{27}
-if($apiLevel -notin @(24,27)){throw 'Unsupported test API level'}
-$profileName='JingCang_Test_API'+$apiLevel+'_x86'
+if($apiLevel -notin @(24,27,34)){throw 'Unsupported test API level'}
+$abi=if($apiLevel -eq 34){'x86_64'}else{'x86'}
+$profileName='JingCang_Test_API'+$apiLevel+'_'+$abi
 if($env:JINGCANG_TEST_COLD_BOOT -eq '1'){
  $leases=Invoke-RestMethod ($base+'/api/v1/mobile/sessions') -WebSession $web
  if(@($leases.data | Where-Object {$_.device_id -eq 'emulator-5580' -and $_.status -eq 'READY'}).Count -gt 0){
@@ -18,7 +19,7 @@ if($env:JINGCANG_TEST_COLD_BOOT -eq '1'){
  }
 }
 try{
- Invoke-RestMethod ($base+'/api/v1/mobile/profiles/create') -WebSession $web -Method Post -ContentType 'application/json' -Body '{"apiLevel":34}' | Out-Null
+ Invoke-RestMethod ($base+'/api/v1/mobile/profiles/create') -WebSession $web -Method Post -ContentType 'application/json' -Body '{"apiLevel":35}' | Out-Null
  throw 'Unsupported Android 14 create accepted'
 }catch{
  if($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 400){Write-Output 'UNSUPPORTED_API_REJECTION=PASS'}else{throw}

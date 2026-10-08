@@ -74,6 +74,10 @@ if ($available.Count -lt 1) { throw 'No booted Android devices' }
 $device=$available[0]
 $existing=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/sessions') -WebSession $session
 if (@($existing.data | Where-Object {$_.device_id -eq $device.id -and $_.status -eq 'READY'}).Count -gt 0){
+  $lease=@($existing.data | Where-Object {$_.device_id -eq $device.id -and $_.status -eq 'READY'})[0]
+  $heartbeat=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/sessions/'+$lease.id+'/heartbeat') -Method Post -WebSession $session -ContentType 'application/json' -Body '{}'
+  if(-not $heartbeat.success -or $heartbeat.data.status -ne 'READY'){throw 'Heartbeat failed for existing active session'}
+  Write-Output 'ACTIVE_SESSION_HEARTBEAT=PASS'
   Write-Output ('DEVICE_IN_USE_SKIP_SESSION_SMOKE='+$device.id)
   exit 0
 }

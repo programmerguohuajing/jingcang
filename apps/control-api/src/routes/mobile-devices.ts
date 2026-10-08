@@ -69,7 +69,7 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     if(!user)return reply.code(401).send({success:false});
     if(user.role!=='admin')return reply.code(403).send({success:false,error:{code:'ADMIN_ONLY'}});
     const body=req.body as {apiLevel?:number};
-    if(!body || ![24,27].includes(body.apiLevel??-1))return reply.code(400).send({success:false,error:{code:'UNSUPPORTED_IMAGE'}});
+    if(!body || ![24,27,34].includes(body.apiLevel??-1))return reply.code(400).send({success:false,error:{code:'UNSUPPORTED_IMAGE'}});
     try{
       const response=await agent('/profiles/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apiLevel:body.apiLevel})});
       const result=await response.json();
@@ -81,7 +81,7 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
     if(!user)return reply.code(401).send({success:false});
     if(user.role!=='admin')return reply.code(403).send({success:false,error:{code:'ADMIN_ONLY'}});
     const {id}=req.params as {id:string};
-    if(!/^JingCang_Test_API(?:24|27)_x86$/.test(id))return reply.code(400).send({success:false,error:{code:'INVALID_MANAGED_AVD'}});
+    if(!/^JingCang_Test_API(?:24|27)_x86$|^JingCang_Test_API34_x86_64$/.test(id))return reply.code(400).send({success:false,error:{code:'INVALID_MANAGED_AVD'}});
     // The Agent validates the managed marker and exact running AVD identity.
     // An unrelated lease on the fixed emulator port must not block deleting an offline profile.
     try{
