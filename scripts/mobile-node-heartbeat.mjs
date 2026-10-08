@@ -1,14 +1,22 @@
-export function startNodeHeartbeat({nodeId,credential,controlUrl,platform='windows',startedAt=new Date().toISOString(),managedCount=()=>0,deviceInventory=async()=>[],fetchImpl=fetch,intervalMs=15000,logger=console}){
+export function startNodeHeartbeat({nodeId,credential,controlUrl,platform='windows',startedAt=new Date().toISOString(),managedCount=()=>0,deviceInventory=async()=>[],agentUrl='',fetchImpl=fetch,intervalMs=15000,logger=console}){
   if(!/^[A-Za-z0-9._-]{1,80}$/.test(nodeId||'')||!/^[a-f0-9]{64}$/.test(credential||''))throw Error('INVALID_NODE_CREDENTIALS');
   const url=new URL('/api/v1/mobile/nodes/'+encodeURIComponent(nodeId)+'/heartbeat',controlUrl);
   if(!['https:','http:'].includes(url.protocol))throw Error('INVALID_CONTROL_URL');
   if(url.protocol==='http:'&&!['127.0.0.1','localhost','host.docker.internal'].includes(url.hostname))throw Error('INSECURE_CONTROL_URL');
   let timer,stopped=false,busy=false,disabled=false,attempt=0;
+  // 控制面可达的 Agent 端点：http 仅允许回环/开发主机，远程必须 https
+  let agentUrlSafe='';
+  if(agentUrl){
+    const agentParsed=new URL(agentUrl);
+    if(!['http:','https:'].includes(agentParsed.protocol))throw Error('INVALID_AGENT_URL');
+    if(agentParsed.protocol==='http:'&&!['127.0.0.1','localhost','host.docker.internal'].includes(agentParsed.hostname))throw Error('INSECURE_AGENT_URL');
+    agentUrlSafe=agentParsed.toString().replace(/\/$/,'');
+  }
   const tick=async()=>{
     if(stopped||disabled||busy)return;
     busy=true;
     try{
-      const response=await fetchImpl(url,{method:'POST',headers:{Authorization:'Bearer '+credential,'Content-Type':'application/json'},body:JSON.stringify({platform,startedAt,uptimeSeconds:Math.max(0,Math.floor((Date.now()-Date.parse(startedAt))/1000)),managedEmulatorCount:managedCount(),devices:await deviceInventory()}),signal:AbortSignal.timeout(7000)});
+      const response=await fetchImpl(url,{method:'POST',headers:{Authorization:'Bearer '+credential,'Content-Type':'application/json'},body:JSON.stringify({platform,startedAt,uptimeSeconds:Math.max(0,Math.floor((Date.now()-Date.parse(startedAt))/1000)),managedEmulatorCount:managedCount(),devices:await deviceInventory(),...(agentUrlSafe?{agentUrl:agentUrlSafe}:{})}),signal:AbortSignal.timeout(7000)});
       if(response.status===401||response.status===403){disabled=true;logger.warn('Node heartbeat authentication revoked; reporting disabled');return;}
       if(!response.ok)throw Error('HTTP_'+response.status);
       if(attempt>0)logger.info('Node heartbeat recovered');

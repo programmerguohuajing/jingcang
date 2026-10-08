@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
-import { OrchestratorService } from '../services/orchestrator.service.js';
 import { ViewerGatewayService } from '../services/viewer-gateway.service.js';
 import { AuthService } from '../services/auth.service.js';
+import { DesktopProvider } from '../providers/desktop.provider.js';
 import {
   CreateSessionRequestSchema,
   SessionQuerySchema,
@@ -12,7 +12,7 @@ import {
 
 export function registerSessionRoutes(
   fastify: FastifyInstance,
-  orchestrator: OrchestratorService,
+  orchestrator: DesktopProvider,
   viewerGateway: ViewerGatewayService,
   authService: AuthService
 ) {

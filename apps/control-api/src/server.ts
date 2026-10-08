@@ -15,6 +15,7 @@ import { ViewerGatewayService } from './services/viewer-gateway.service.js';
 import { WorkerService } from './services/worker.service.js';
 import { BrowserProvisioningService } from './services/browser-provisioning.service.js';
 import { ApprovalService } from './services/approval.service.js';
+import { createDesktopProvider, DesktopProvider } from './providers/desktop.provider.js';
 
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerBrowserRoutes } from './routes/browsers.js';
@@ -24,6 +25,12 @@ import { registerHealthRoutes } from './routes/health.js';
 import { registerViewerRoutes } from './routes/viewer.js';
 import { registerArtifactRoutes } from './routes/artifacts.js';
 import { registerMobileDeviceRoutes } from './routes/mobile-devices.js';
+import { registerDeviceRoutes } from './routes/devices.js';
+import { DeviceRegistryService } from './services/device-registry.service.js';
+import { SessionCoreService } from './services/session-core.service.js';
+import { ViewerTokenService } from './services/viewer-token.service.js';
+import { NodeRouterService } from './services/node-router.service.js';
+import { NodeRecoveryService } from './services/node-recovery.service.js';
 
 async function main() {
   const config = loadConfig();
@@ -40,6 +47,8 @@ async function main() {
   const approvalService = new ApprovalService(config, authService, catalogService, browserProvisioningService);
 
   const orchestrator = new OrchestratorService(config, catalogService);
+  // CORE-001：以统一 DesktopProvider 接口承载桌面云浏览器能力（兼容层）
+  const desktopProvider: DesktopProvider = createDesktopProvider(config, catalogService);
   const viewerGateway = new ViewerGatewayService(config, orchestrator);
   const workerService = new WorkerService(config, orchestrator);
 
@@ -89,12 +98,26 @@ async function main() {
   // Register REST & Viewer Gateway routes
   registerAuthRoutes(server, authService, config);
   registerBrowserRoutes(server, catalogService, authService, browserProvisioningService, approvalService);
-  registerSessionRoutes(server, orchestrator, viewerGateway, authService);
+  registerSessionRoutes(server, desktopProvider, viewerGateway, authService);
   registerAdminRoutes(server, config, authService, workerService, approvalService);
   registerHealthRoutes(server, config);
   registerViewerRoutes(server, viewerGateway, orchestrator);
   registerArtifactRoutes(server, config, authService);
-  registerMobileDeviceRoutes(server, authService);
+  const sessionCore = new SessionCoreService(config);
+  const nodeRouter = new NodeRouterService(config);
+  const nodeRecovery = new NodeRecoveryService(config, sessionCore, nodeRouter);
+  // 失联节点恢复确认与安全释放：周期探测失联节点并回收其活动租约
+  nodeRecovery.start();
+  registerMobileDeviceRoutes(
+    server,
+    authService,
+    sessionCore,
+    new ViewerTokenService(config.viewerSecret, config.viewerTokenTtlSeconds),
+    nodeRouter
+  );
+
+  const deviceRegistry = new DeviceRegistryService(config);
+  registerDeviceRoutes(server, authService, deviceRegistry);
 
   try {
     await server.listen({ port: config.port, host: config.bindHost });

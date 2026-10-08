@@ -70,12 +70,12 @@ Docker browser    Linux KVM Emulator       USB iPhone + WDA
 | AND-004 | P0 | Chrome 与 APK 单机验证 | Chrome 打开指定 URL，测试 APK 安装/启动/卸载 | 未完成 |
 | AND-005 | P0 | 移动画面与输入原型 | 网页展示画面；点击、滑动、键盘、返回、旋转 | 未完成 |
 | AND-006 | P0 | Appium UiAutomator2 验证 | Chrome Web 元素定位与自动化脚本执行 | 未完成 |
-| AND-007 | P1 | 新增 `packages/device-contracts`，定义 Device/Node/Profile/SessionMode/Capabilities | Zod/TS 契约与单测 | 未完成 |
-| AND-008 | P1 | 新增 `apps/device-agent`（Windows 原生 Agent） | 节点注册、认证、心跳、设备发现、重连 | 未完成 |
-| AND-009 | P1 | 新增 `provider-android` | provision/start/stop/installApp/capture/execute/health 接口 | 未完成 |
-| AND-010 | P1 | 扩展 Device Registry 与设备目录 API | 仅展示已安装、可用的镜像版本与手机 profile | 未完成 |
-| AND-011 | P1 | 引入 Session Core 与 Device Lease | 独占分配、配额、取消、超时、异常回收 | 未完成 |
-| AND-012 | P1 | 向后兼容的 SQLite 迁移 | 原会话可查询/播放，新移动会话不需 Selenium ID | 未完成 |
+| AND-007 | P1 | 新增 `packages/device-contracts`，定义 Device/Node/Profile/SessionMode/Capabilities | Zod/TS 契约与单测 | 已交付（代码 + 8 单测） |
+| AND-008 | P1 | 新增 `apps/device-agent`（Windows 原生 Agent） | 节点注册、认证、心跳、设备发现、重连 | 已交付基础层（注册/鉴权/心跳/重连 + 9 单测；设备发现待真机） |
+| AND-009 | P1 | 新增 `provider-android` | provision/start/stop/installApp/capture/execute/health 接口 | 已交付接口层（AndroidProvider + EmulatorProvider 安全降级；真机/SDK 操作待真机） |
+| AND-010 | P1 | 扩展 Device Registry 与设备目录 API | 仅展示已安装、可用的镜像版本与手机 profile | 已交付（Registry 服务 + 设备目录 API + 单测） |
+| AND-011 | P1 | 引入 Session Core 与 Device Lease | 独占分配、配额、取消、超时、异常回收 | 已交付（状态机 + 独占租约 + 单测） |
+| AND-012 | P1 | 向后兼容的 SQLite 迁移 | 原会话可查询/播放，新移动会话不需 Selenium ID | 已交付（版本化迁移 + 备份回滚 + 旧表补列 + 单测） |
 | AND-013 | P1 | 前端“云手机设备/移动浏览器测试/会话”页面 | 两种模式创建、查看状态、连接及结束会话 | 未完成 |
 | AND-014 | P1 | Mobile Viewer + Stream Gateway | 实时画面、触控、旋转、断连重接、安全鉴权 | 未完成 |
 | AND-015 | P1 | 完整云手机功能 | Android 桌面、APK、App 启动、返回/Home/截图/录屏 | 未完成 |
@@ -118,10 +118,10 @@ Docker browser    Linux KVM Emulator       USB iPhone + WDA
 
 | ID | 任务 | 验收 | 状态 |
 |---|---|---|---|
-| CORE-001 | 提炼 `DesktopProvider`，保留旧接口兼容层 | 原桌面浏览器可正常创建、查看、结束会话 | 未完成 |
+| CORE-001 | 提炼 `DesktopProvider`，保留旧接口兼容层 | 原桌面浏览器可正常创建、查看、结束会话 | 已交付（兼容层 + 单测，待桌面回归） |
 | CORE-002 | 设备权限、审批与角色扩展 | 普通用户不能越权控制真机和他人会话 | 未完成 |
-| CORE-003 | 数据库版本化迁移、备份回滚 | 旧记录不丢失；异常迁移可恢复 | 未完成 |
-| CORE-004 | Viewer Token 与 Agent 双向认证、TLS | 令牌绑定 user/session/device/lease，不暴露调试端口 | 未完成 |
+| CORE-003 | 数据库版本化迁移、备份回滚 | 旧记录不丢失；异常迁移可恢复 | 已交付（迁移器 + 物理备份还原 + 单测） |
+| CORE-004 | Viewer Token 与 Agent 双向认证、TLS | 令牌绑定 user/session/device/lease，不暴露调试端口 | 部分交付（Viewer Token 四元组绑定 + Agent 凭证校验；TLS 待基础设施） |
 | CORE-005 | 统一产物管理：截图、录屏、日志 | 会话隔离、过期清理、文件校验 | 未完成 |
 | CORE-006 | 设备状态、节点资源、审计与告警 | 失联/故障能快速发现并回收资源 | 未完成 |
 | CORE-007 | 修复旧代码 Schema 列名/路由兼容风险 | 有回归用例覆盖 | 未完成 |
@@ -198,3 +198,39 @@ Docker browser    Linux KVM Emulator       USB iPhone + WDA
 - iOS 真机测试的可用版本取决于 Mac 的系统/Xcode/WDA/手机系统矩阵。2015 Mac 是旧版兼容 PoC 节点，不作为新系统覆盖的保证。
 - 设备镜像、测试 App、截图和日志可能包含敏感数据，必须提供权限、隔离及彻底清理机制。
 - 任一阶段未过验收门槛不得标记为已完成或直接发布。
+
+## 12. 本轮已交付软件基础层（P1 软件层，本机编码 + 单测验证）
+
+> 说明：按第 9 节「完成定义」，以下任务已具备**代码与单测**，但仍缺真机运行日志/截图、README/运维文档、CI 通过三项，故状态记为「已交付（待真机/文档/CI）」而非「完成」。涉及真机/模拟器/ADB/iOS 的 P0 环境 PoC（AND-002～006、IOS-001～005）仍全部未完成，无法在本机验证。
+
+### 12.1 已交付清单（AND-007～012、CORE-001/003/004 软件部分）
+
+| 任务 | 交付物 | 验证 |
+|---|---|---|
+| AND-007 | `packages/device-contracts`：平台/设备/节点/Profile/SessionMode/Capabilities 枚举与 Zod 契约（`DeviceProfileSchema`、`DeviceNodeSchema`、`DeviceInstanceSchema`、`DeviceLeaseSchema`、`CreateDeviceSessionRequestSchema`、`EnrollNodeRequestSchema`、`NodeHeartbeatSchema`、`ViewerTokenClaimsSchema`、`DeviceActionSchema`） | 8 个单测通过 |
+| AND-008 | `apps/device-agent`：`AgentController`（注册/鉴权/心跳/重连，指数退避）、Fastify `server.ts`（`/health`、`/devices`、`/capabilities`、`/system-images`、`/profiles`）、`index.ts` 入口 | 9 个单测通过 |
+| AND-009 | `apps/device-agent/src/provider/android.ts`：`AndroidProvider` 接口 + `EmulatorProvider`（ADB 调用；无 SDK 时安全降级 `PROVIDER_UNAVAILABLE`，`startVideoStream` 回退 `null`） | 接口 + 单测（含 FakeProvider）通过；真机/AVD 操作待真机 |
+| AND-010 | `apps/control-api/src/services/device-registry.service.ts` + `routes/devices.ts`：`GET /api/v1/device-profiles`、`GET /api/v1/devices`、`GET /api/v1/device-nodes`、`POST .../register`、`POST .../:id/heartbeat`、`POST .../:id/revoke`、`POST /api/v1/device-profiles`（桥接 legacy `mobile_*` 表） | Registry 单测通过；路由待集成测试 |
+| AND-011 | `apps/control-api/src/services/session-core.service.ts`：`SessionCoreService` 统一状态机（QUEUED→ALLOCATING→BOOTING→READY→TERMINATING→TERMINATED，FAILED/EXPIRED/LOST 分支）+ 独占租约（`device_leases` 唯一索引保证一台设备同一时刻仅一个 READY） | 6 个单测通过 |
+| AND-012 | `apps/control-api/src/db/migrations.ts`：版本化迁移（幂等、备份/回滚、历史 `mobile_sessions` 旧表补列 + backfill）、`schema_migrations` 记录 | 迁移单测（建表/幂等/回滚/备份还原/旧表补列）通过 |
+| CORE-001 | `apps/control-api/src/providers/desktop.provider.ts`：`DesktopProvider` 接口 + `SeleniumDesktopProvider`（委托既有 `OrchestratorService`）+ `createDesktopProvider` 兼容工厂 | 4 个单测通过（含 StubOrchestrator） |
+| CORE-003 | 复用 AND-012 迁移器 + `backupDatabase`/`restoreDatabase`/`listBackups` 物理备份还原 | 见 AND-012 |
+| CORE-004 | `apps/control-api/src/services/viewer-token.service.ts`：`ViewerTokenService`（HMAC-SHA256 绑定 user/session/device/lease 四元组，base64url 编码）+ 静态 `verifyNodeCredential`（64-hex 凭证 Bearer 校验） | 单测通过；TLS 待基础设施层配置 |
+
+### 12.2 验证结果
+
+- 全部 7 个 workspace 包 `pnpm -r build` 通过（含 `console-web` vite 生产构建）。
+- `pnpm -r test` 全绿，共 **74** 项单测：`contracts` 6、`device-contracts` 8、`browser-catalog` 4、`device-agent` 9、`control-api` 47。
+- 控制面 `server.ts` 已注入 `desktopProvider` / `deviceRegistry` / `sessionCore` / `viewerToken`；`mobile-devices.ts` 会话生命周期改走 `SessionCoreService`，创建后签发 Viewer Token 并存储摘要，stream/h264 用 `isLeaseActive` 守卫。
+
+### 12.3 尚未交付（需真机 / 前端 / 基础设施，不在本轮编码范围）
+
+- **硬件依赖（待 AND-002～006、IOS-001～005 真机 PoC 后推进）**：AND-013 前端云手机/移动浏览器页面、AND-014 Mobile Viewer + Stream Gateway、AND-015 完整云手机、AND-016 手机浏览器功能、IOS-006～008 iOS Agent/Provider/Viewer。
+- **横向工作**：CORE-002（权限/审批/RBAC 扩展）、CORE-005（统一产物管理）、CORE-006（节点资源/审计/告警）、CORE-007（旧 Schema/路由兼容回归用例）、CORE-008（Windows/Linux/macOS 文档与离线部署指南）、CORE-009（CI：单测/契约/集成/打包/安全扫描）、CORE-010（多节点扩容与容量规划）。
+- **关闭验收门槛前必须补**：真机运行日志/截图、README/运维文档更新、CI 流水线通过（CORE-009）。
+
+### 12.4 已知限制与风险
+
+- `EmulatorProvider` 在缺乏 Android SDK/ADB 的宿主上仅返回 `PROVIDER_UNAVAILABLE`，不执行真实模拟器操作；真机/AVD 行为未经本机实测。
+- `mobile_sessions` 历史旧表补列已在迁移 1 内以 `ALTER TABLE` 幂等补齐（`lease_id`/`viewer_token_hash`/`profile_id`/`expires_at`/`ended_at`/`failure_code`/`failure_message`），并对缺失 `expires_at`/`created_at`/`updated_at` 的记录做 backfill；但旧开发库中若存在更早期、连 `id` 之外的核心列都缺失的极端表结构，仍需在真机升级前人工核对。
+- Viewer Token 已具备四元组绑定与摘要校验，但传输层 TLS、Agent 与管理面之间的 mTLS 尚未配置（CORE-004 的 TLS 部分）。

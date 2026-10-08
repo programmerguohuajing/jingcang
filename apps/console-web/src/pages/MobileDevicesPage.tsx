@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {H264Canvas} from '../components/H264Canvas';
-type Device = {id:string;kind:string;state:string;model?:string;osVersion?:string;booted?:boolean;available?:boolean;leased?:boolean};
-type Session = {id:string;device_id:string;mode:string;status:string};
+type Device = {id:string;kind:string;state:string;model?:string;osVersion?:string;booted?:boolean;available?:boolean;leased?:boolean;nodeId?:string};
+type Session = {id:string;device_id:string;mode:string;status:string;node_id?:string};
 type Capability = {id:string;apiLevel:number|null;abi:string;chromeInstalled:boolean;securityPatch:string;appiumStatus:string};
 type SystemImage = {apiLevel:number;flavor:string;abi:string;installed:boolean};
 type Profile = {id:string;model:string;apiLevel:number|null;systemImage:string;managed?:boolean;lifecycle?:{status:string;serial:string}|null};
+type RemoteDevice = {nodeId:string;id:string;kind:string;state:string;booted:boolean;online:boolean;routable?:boolean;available?:boolean;leased?:boolean};
 export const MobileDevicesPage: React.FC = () => {
  const [devices,setDevices]=useState<Device[]>([]);
  const [profiles,setProfiles]=useState<Profile[]>([]);
@@ -15,8 +16,8 @@ export const MobileDevicesPage: React.FC = () => {
  const managedPortBusy=sessions.some(s=>s.device_id==='emulator-5580'&&s.status==='READY');
  const [status,setStatus]=useState('loading');
  const [agentHealth,setAgentHealth]=useState<{nodeId:string;uptimeSeconds:number;managedEmulatorCount:number;automationInProgress:number}|null>(null);
- const [agentNodes,setAgentNodes]=useState<Array<{node_id:string;platform:string;online:boolean;last_seen_at:string}>>([]);
- const [remoteDevices,setRemoteDevices]=useState<Array<{nodeId:string;id:string;kind:string;state:string;booted:boolean;online:boolean}>>([]);
+ const [agentNodes,setAgentNodes]=useState<Array<{node_id:string;platform:string;online:boolean;routable?:boolean;last_seen_at:string}>>([]);
+ const [remoteDevices,setRemoteDevices]=useState<RemoteDevice[]>([]);
  const [error,setError]=useState('');
  const [selected,setSelected]=useState<Session|null>(null);
  const [shot,setShot]=useState('');
@@ -68,11 +69,11 @@ export const MobileDevicesPage: React.FC = () => {
   const interval=setInterval(()=>void keepAlive(),30000);
   return()=>clearInterval(interval);
  },[selected]);
- async function create(deviceId:string,mode:'phone'|'browser'){
-  const r=await fetch('/api/v1/mobile/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId,mode,startUrl})});
+ async function create(deviceId:string,mode:'phone'|'browser',nodeId?:string){
+  const r=await fetch('/api/v1/mobile/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId,mode,startUrl,nodeId})});
   const json=await r.json();
   if(!r.ok){setError(json.error?.message||json.error?.code||'设备占用或无法连接');return;}
-  await refresh();setSelected({id:json.data.id,device_id:deviceId,mode,status:'READY'});
+  await refresh();setSelected({id:json.data.id,device_id:deviceId,mode,status:'READY',node_id:nodeId});
  }
  async function action(body:object){
   if(!selected)return;
@@ -140,18 +141,26 @@ export const MobileDevicesPage: React.FC = () => {
   {error&&<p role="alert" style={{color:'#dc2626'}}>{error}</p>}
   <label style={{display:'block',marginBottom:16}}>浏览器起始网址：<input value={startUrl} onChange={e=>setStartUrl(e.target.value)} style={{width:360,maxWidth:'100%',marginLeft:10,padding:8}} placeholder="https://example.com" /></label>
   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(270px,1fr))',gap:16}}>
-   {devices.map(d=><section key={d.id} style={{border:'1px solid var(--nav-border)',padding:20,borderRadius:12}}>
-    <h3>{d.model||d.id}</h3><p>{d.kind==='android-emulator'?'Android 模拟器':'Android 真机'} · Android {d.osVersion||'未知'}</p>
+   {devices.map(d=><section key={d.nodeId+':'+d.id} style={{border:'1px solid var(--nav-border)',padding:20,borderRadius:12}}>
+    <h3>{d.model||d.id}</h3><p>{d.kind==='android-emulator'?'Android 模拟器':'Android 真机'} · Android {d.osVersion||'未知'} · 节点 {d.nodeId||'windows-local-dev'}</p>
     <p>状态：{d.leased?'已被会话独占':d.booted?'就绪':d.state}</p>
-    <div style={{display:'flex',gap:8}}><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'phone')}>完整云手机</button><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'browser')}>浏览器模式</button></div>
+    <div style={{display:'flex',gap:8}}><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'phone',d.nodeId)}>完整云手机</button><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'browser',d.nodeId)}>浏览器模式</button></div>
    </section>)}
   </div>
-  {devices.length===0&&<p>暂无在线 Android 设备，请检查 Windows Agent、ADB 与 Docker 连通性。</p>}
+  {devices.length===0&&<p>暂无在线 Android 设备，请检查各节点 Agent、ADB 与网络连通性。</p>}
   <h2 style={{marginTop:28}}>Agent 节点登记状态</h2>
-  {agentNodes.map(n=><p key={n.node_id}>{n.node_id} · {n.platform} · {n.online?'最近 45 秒有心跳':'心跳已超时'} · 最后检测 {n.last_seen_at}</p>)}
-  <h2 style={{marginTop:28}}>远程节点设备目录（只读）</h2>
-  <p style={{fontSize:13,color:'var(--text-muted)'}}>设备由各节点独立认证上报。远程控制和跨节点租约调度尚未开放，不会误操作本机同名序列号。</p>
-  {remoteDevices.map(d=><div key={d.nodeId+':'+d.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{d.id}</strong> · 节点 {d.nodeId} · {d.kind} · {d.online?(d.booted?'在线已启动':d.state):'节点离线'} · 暂不可调度</div>)}
+  {agentNodes.map(n=><p key={n.node_id}>{n.node_id} · {n.platform} · {n.online?'最近 45 秒有心跳':'心跳已超时'} · {n.routable?'可调度':(n.online?'已在线未登记端点':'不可调度')} · 最后检测 {n.last_seen_at}</p>)}
+  {agentNodes.length===0&&<p>尚无节点登记。管理员可在节点上运行 Agent 并配置 JINGCANG_NODE_CONTROL_URL/JINGCANG_NODE_CREDENTIAL 主动心跳。</p>}
+  <h2 style={{marginTop:28}}>Android 真机池</h2>
+  <p style={{fontSize:13,color:'var(--text-muted)'}}>通过 ADB 发现的真实 Android 设备（USB/网络），节点在线且设备可用时可创建独占会话；真机断线后会话将被安全释放。</p>
+  {remoteDevices.filter(d=>d.kind==='android-real').map(d=><div key={d.nodeId+':'+d.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8,display:'flex',gap:10,alignItems:'center',justifyContent:'space-between'}}>
+   <div><strong>{d.id}</strong> · 节点 {d.nodeId} · Android 真机 · {d.online?(d.booted?'在线已就绪':d.state):'节点离线'}{d.leased&&' · 已被会话独占'}</div>
+   <div style={{display:'flex',gap:8}}><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'phone',d.nodeId)}>完整云手机</button><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'browser',d.nodeId)}>浏览器模式</button></div>
+  </div>)}
+  {remoteDevices.filter(d=>d.kind==='android-real').length===0&&<p>当前没有可用的 Android 真机接入。将真机通过 USB 连接并授权调试后，由节点 Agent 自动发现并纳入真机池。</p>}
+  <h2 style={{marginTop:28}}>远程节点设备目录（可跨节点调度）</h2>
+  <p style={{fontSize:13,color:'var(--text-muted)'}}>设备由各节点独立认证上报；已登记端点的在线节点设备可创建独占会话，操作请求会按节点归属安全转发。</p>
+  {remoteDevices.map(d=><div key={d.nodeId+':'+d.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8,display:'flex',gap:10,alignItems:'center',justifyContent:'space-between'}}><div><strong>{d.id}</strong> · 节点 {d.nodeId} · {d.kind==='android-real'?'Android 真机':'Android 模拟器'} · {d.online?(d.booted?'在线已启动':d.state):'节点离线'}{d.leased&&' · 已被独占'}</div><div style={{display:'flex',gap:8}}><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'phone',d.nodeId)}>完整云手机</button><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'browser',d.nodeId)}>浏览器模式</button></div></div>)}
   {remoteDevices.length===0&&<p>尚无远程节点设备上报。</p>}
   <h2 style={{marginTop:28}}>自动化环境诊断</h2><p>Appium 工具链：{appiumReady?'已连接（设备兼容性须实测）':'未就绪'}</p>
   <p style={{color:'var(--text-muted)'}}>展示实际检测结果，不代表 Appium 已安装或可以运行测试。</p>

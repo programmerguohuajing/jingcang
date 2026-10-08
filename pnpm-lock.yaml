@@ -72,6 +72,9 @@ importers:
       '@jingcang/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@jingcang/device-contracts':
+        specifier: workspace:*
+        version: link:../../packages/device-contracts
       dotenv:
         specifier: ^18.0.1
         version: 18.0.1
@@ -101,6 +104,25 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  apps/device-agent:
+    dependencies:
+      '@fastify/static':
+        specifier: ^10.1.4
+        version: 10.1.4
+      '@jingcang/device-contracts':
+        specifier: workspace:*
+        version: link:../../packages/device-contracts
+      fastify:
+        specifier: ^5.12.5
+        version: 5.12.5
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.4
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
   packages/browser-catalog:
     dependencies:
       '@jingcang/contracts':
@@ -121,6 +143,16 @@ importers:
         version: 5.9.3
 
   packages/contracts:
+    dependencies:
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  packages/device-contracts:
     dependencies:
       zod:
         specifier: ^3.24.1

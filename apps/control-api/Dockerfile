@@ -15,6 +15,7 @@ COPY apps/console-web ./apps/console-web
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @jingcang/contracts build \
  && pnpm --filter @jingcang/browser-catalog build \
+ && pnpm --filter @jingcang/device-contracts build \
  && pnpm --filter @jingcang/console-web build \
  && pnpm --filter @jingcang/control-api build
 

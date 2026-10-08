@@ -219,5 +219,16 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 端到端 UI 已在真实设备会话和本机 Chrome 无头浏览器通过：`H264_UI_SESSION_SELECTED=PASS`、`H264_UI_DECODED_CANVAS=PASS 1080x1920`，本次从点击连接到首帧渲染 1427ms（包含接口与浏览器解码，不等于持续视频单向延迟）。新增 `scripts/test-mobile-h264-ui.mjs`，默认仅在设备空闲时创建并在退出时清理自己的测试会话；复用外部明确指定的测试会话时不主动释放。
 - 限制：链路为 H.264 over HTTP + WebCodecs，并非 WebRTC；实时连续多帧的吞吐、长期稳定性、网络抖动/断链恢复和生产级端到端时延仍待正式压力测试。不可宣称 WebRTC 或跨浏览器全部完成。
 
+### 2026-10-08 · 跨节点真实设备控制与调度 + 失联节点恢复确认与安全释放 + Android 真机池
+- **跨节点真实设备控制与调度（P1）**：新增 `NodeRouterService`（`apps/control-api/src/services/node-router.service.ts`），按会话归属 node_id 解析"控制面可达的 Agent 端点 + 调用凭证"，所有设备操作（截图/控制/H.264/App/自动化）不再固定转发本机 windows-local-dev；远程节点登记时可选登记 `agentUrl`/`agentToken`（AES-256-GCM 加密落库，密钥派生自服务端 viewerSecret，不落明文、不对外返回），心跳可上报 `agentUrl`；`/devices` 聚合多节点设备池，`POST /sessions` 允许指定任意已登记在线节点并独占调度，`owner()` 改为动态路由拒绝不可路由节点。新增 DB 迁移 2/3（节点端点列、旧库 mobile_sessions 缺失列幂等补齐）。
+- **失联节点恢复确认与安全释放（P1）**：新增 `NodeRecoveryService`（周期 20s）：先依据心跳新鲜度/凭证撤销得到候选失联节点，再对每个候选做主动 `GET /health` 健康探测确认（避免网络抖动误杀），确认失联后置 `device_nodes.status=OFFLINE` 并调用 `SessionCore.recoverLostLeases` 把该节点上 READY/BOOTING/ALLOCATING 会话标记 LOST 并释放租约；心跳处理器新增设备级断线回收 `recoverDeviceLease`（节点在线但真机从 ADB 清单消失/失效时安全释放）。
+- **Android 真机池（P2 AND-018 前半）**：ADB 发现的 `android-real` 真机纳入可调度设备池：节点心跳上报真机清单（已有），`/api/v1/mobile/node-devices` 对在线可路由节点真机返回 `available/routable=true`，前端新增"Android 真机池"区并可创建完整云手机/浏览器独占会话；真机断线（拔出/USB 失效）由心跳检测自动安全释放会话。
+- Agent 心跳脚本 `mobile-node-heartbeat.mjs` 支持 `agentUrl` 上报（http 仅回环/host.docker.internal，远程须 https）；`run-android-agent.ps1` 默认上报 `http://host.docker.internal:19879`；前端移动设备页按节点展示设备、真机池与远程节点可调度入口。
+- **端到端验证（28088 独立开发环境）**：mock 远程节点登记+心跳（真机+模拟器清单）→ 节点列表 `routable=true`、真机池 `available=true`、聚合设备池跨节点列出、跨节点创建独占会话（READY）、跨节点截图（image/png）与控制动作（HOME）全部 PASS；停止 mock 节点后等待失联确认窗口（45s 心跳阈值 + 20s 探测周期），会话被标记 `LOST` 且租约释放、设备重新可调度，`scripts/test-mobile-cross-node.mjs` 输出 `ALL_PASS`。
+- 全项目 Lint、47 项 control-api 单测（新增 NodeRouter 8 项、NodeRecovery 6 项）、全 workspace 测试、Build 全部通过；Docker 独立开发环境重建成功；主平台 8088 网关/容器保持正常。
+- 仍待：真实 Android 14 冷启动与 Chrome/APK 全链路复测（宿主虚拟内存）、Appium 脚本生产化、H.264/WebRTC 正式压力、Linux KVM、iOS 真机、正式 mTLS 与多租户安全加固。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。
+
+> AI生成

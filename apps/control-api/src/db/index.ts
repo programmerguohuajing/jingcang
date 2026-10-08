@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { Config } from '../config.js';
+import { runMigrations } from './migrations.js';
 
 let dbInstance: DatabaseSync | null = null;
 
@@ -195,4 +196,7 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_approval_requests_user ON approval_requests(user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_user_browser_permissions_user ON user_browser_permissions(user_id);
   `);
+
+  // 多端云测试（设备云）新增表以版本化迁移演进，旧表保持兼容。
+  runMigrations(dbInstance as DatabaseSync);
 }
