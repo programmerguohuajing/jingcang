@@ -187,5 +187,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 新增 `scripts/test-mobile-node-enrollment.ps1`：使用临时节点测试发放凭证、正确心跳、节点登记、错误凭证 401、撤销、撤销后 401，六项均 PASS，测试不打印凭证明文。原有会话创建、重复租约保护、APK 错误拒绝、截图与会话释放也完成端到端回归。
 - Control API 类型检查、构建、独立 Docker 重建成功。**当前仍不允许新节点调度或访问设备**：注册和心跳验证是基础功能，尚需节点级证书或网络信任保护、真实 Agent 主动连接、心跳服务进程、跨节点路由、失联后安全回收与审计。
 
+### 2026-10-08 · P1 Agent 进程内主动认证心跳
+- 新增 `scripts/mobile-node-heartbeat.mjs`，使用服务端签发的节点专属 256 位凭证，默认每 15 秒向 Control API `/api/v1/mobile/nodes/:id/heartbeat` 上报启动时间、运行秒数、平台和托管 AVD 数；网络故障保留定时重试，401/403 凭证撤销后禁用主动上报，`stop()` 可退出循环。
+- Agent 仅在同时配置 `JINGCANG_ANDROID_NODE_ID`、`JINGCANG_NODE_CREDENTIAL` 和 `JINGCANG_NODE_CONTROL_URL`（环境变量）时使用主动心跳；沿用原有 Agent 的其他能力，未更改现有 Windows 单节点启动脚本。
+- 安全约束：远程节点控制地址必须为 HTTPS；HTTP 仅可使用本地/开发专用回环地址。不要将节点凭证提交到仓库、写入日志或通过不受信任的 HTTP 网络传输。开发环境多节点认证和上报仍未形成生产级 mTLS 及跨节点设备控制链路。
+- 新增 `scripts/test-mobile-node-heartbeat.mjs`，4 项测试：正常定时上报及停止、撤销停报、暂时故障重试、非安全 URL/无效凭证拒绝，全部 PASS；Control API TypeScript 检查及构建 PASS。真实多节点 Agent 主动心跳端到端和断网可靠性仍待独立节点实测。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

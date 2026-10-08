@@ -5,6 +5,7 @@ import { mkdtemp, writeFile, rm, readFile, readdir, stat, mkdir } from 'node:fs/
 import { tmpdir, homedir } from 'node:os';
 import path from 'node:path';
 import {appiumDiagnostics,runChromeSmoke} from './android-webdriver-automation.mjs';
+import {startNodeHeartbeat} from './mobile-node-heartbeat.mjs';
 
 const exec = promisify(execFile);
 const managedAvds = new Map();
@@ -281,4 +282,9 @@ http.createServer(async(req,res)=>{
     }
     return send(res,405,{error:'METHOD_NOT_ALLOWED'});
   }catch(error){return send(res,503,{error:'AGENT_ERROR',message:String(error.message||error)});}
-}).listen(port,host,()=>console.log('Android Device Agent listening on '+host+':'+port));
+}).listen(port,host,()=>{
+  console.log('Android Device Agent listening on '+host+':'+port);
+  if(process.env.JINGCANG_NODE_CONTROL_URL && process.env.JINGCANG_NODE_CREDENTIAL){
+    startNodeHeartbeat({nodeId:agentNodeId,credential:process.env.JINGCANG_NODE_CREDENTIAL,controlUrl:process.env.JINGCANG_NODE_CONTROL_URL,platform:process.platform,startedAt:agentStartedAt,managedCount:()=>managedAvds.size});
+  }
+});
