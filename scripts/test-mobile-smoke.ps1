@@ -24,6 +24,28 @@ try {
 } catch {
   if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 409){Write-Output 'DUPLICATE_AVD_REJECTION=PASS'}else{throw}
 }
+if ($env:JINGCANG_TEST_AVD_BOOT -eq '1') {
+  $target=if($env:JINGCANG_TEST_AVD_TARGET){$env:JINGCANG_TEST_AVD_TARGET}else{'Android_5_0_API21'}
+  Write-Output ('COLD_BOOT_REQUEST='+$target)
+  $launch=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/profiles/'+$target+'/start') -Method Post -WebSession $session -ContentType 'application/json' -Body '{}'
+  if (-not $launch.success) {throw 'Start failed'}
+  $booted=$false
+  try {
+    for($i=0;$i -lt 24;$i++) {
+      Start-Sleep -Seconds 5
+      $state=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/profiles') -WebSession $session
+      $managed=$state.data.profiles | Where-Object {$_.id -eq $target}
+      if($managed.lifecycle.status -eq 'ready') {$booted=$true;break}
+      if($managed.lifecycle.status -eq 'timeout') {break}
+    }
+    Write-Output ('AVD_COLD_BOOT_READY='+$booted)
+  }finally{
+    $stopped=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/profiles/'+$target+'/stop') -Method Post -WebSession $session -ContentType 'application/json' -Body '{}'
+    Write-Output ('MANAGED_AVD_STOP='+$stopped.success)
+  }
+  if (-not $booted) {throw 'Android AVD boot did not reach ready'}
+  exit 0
+}
 $available=@($devices.data.devices | Where-Object {$_.state -eq 'device' -and $_.booted})
 if ($available.Count -lt 1) { throw 'No booted Android devices' }
 $device=$available[0]

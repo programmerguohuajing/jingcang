@@ -7,6 +7,18 @@ import path from 'node:path';
 
 const exec = promisify(execFile);
 const managedAvds = new Map();
+const MANAGED_SERIAL = 'emulator-5580';
+const STARTUP_TIMEOUT_MS = 120000;
+async function managedStatus(name){
+  const entry=managedAvds.get(name);
+  if(!entry)return null;
+  const online=(await devices()).find(d=>d.id===MANAGED_SERIAL);
+  if(online?.booted){entry.status='ready';return {status:'ready',serial:MANAGED_SERIAL};}
+  if(Date.now()-entry.startedAt>STARTUP_TIMEOUT_MS){
+    entry.status='timeout';return {status:'timeout',serial:MANAGED_SERIAL};
+  }
+  return {status:entry.status,serial:MANAGED_SERIAL};
+}
 const host = process.env.JINGCANG_ANDROID_AGENT_HOST || '127.0.0.1';
 const token = process.env.JINGCANG_MOBILE_AGENT_TOKEN || '';
 const port = Number(process.env.JINGCANG_ANDROID_AGENT_PORT || 19879);
@@ -66,14 +78,23 @@ http.createServer(async(req,res)=>{
   if(req.method==='GET' && url.pathname==='/health') return send(res,200,{status:'ok',platform:process.platform});
   try {
     if(req.method==='GET' && url.pathname==='/devices') return send(res,200,{devices:await devices()});
-    if(req.method==='GET' && url.pathname==='/profiles') return send(res,200,{profiles:(await profiles()).map(p=>({...p,managed:managedAvds.has(p.id)}))});
+    if(req.method==='GET' && url.pathname==='/profiles'){
+      const current=await profiles();
+      return send(res,200,{profiles:await Promise.all(current.map(async p=>({...p,managed:managedAvds.has(p.id),lifecycle:await managedStatus(p.id)})))});
+    }
     const avdAction=/^\/profiles\/([A-Za-z0-9._-]{1,80})\/(start|stop)$/.exec(url.pathname);
     if(req.method==='POST' && avdAction){
       const name=avdAction[1],operation=avdAction[2];
       if(operation==='stop'){
-        const child=managedAvds.get(name);
-        if(!child)return send(res,409,{error:'NOT_MANAGED_BY_AGENT'});
-        child.kill(); managedAvds.delete(name);
+        const entry=managedAvds.get(name);
+        if(!entry)return send(res,409,{error:'NOT_MANAGED_BY_AGENT'});
+        const online=(await devices()).find(d=>d.id===MANAGED_SERIAL);
+        if(online){
+          const actual=await adbText(['-s',MANAGED_SERIAL,'emu','avd','name']).catch(()=>'');
+          if(actual.split(/\r?\n/)[0].trim()!==name)return send(res,409,{error:'MANAGED_DEVICE_MISMATCH'});
+          await adbText(['-s',MANAGED_SERIAL,'emu','kill']);
+        }else{entry.child.kill();}
+        managedAvds.delete(name);
         return send(res,200,{success:true,status:'stopping'});
       }
       if(managedAvds.has(name))return send(res,409,{error:'ALREADY_MANAGED'});
@@ -84,10 +105,10 @@ http.createServer(async(req,res)=>{
       if(!list.some(p=>p.id===name))return send(res,404,{error:'AVD_NOT_FOUND'});
       if(managedAvds.size>=1)return send(res,409,{error:'POC_EMULATOR_LIMIT'});
       const child=spawn(emulator,['-avd',name,'-port','5580','-no-snapshot-save'],{detached:false,stdio:'ignore',windowsHide:true});
-      child.on('error',()=>{if(managedAvds.get(name)===child)managedAvds.delete(name);});
-      child.on('exit',()=>{if(managedAvds.get(name)===child)managedAvds.delete(name);});
-      managedAvds.set(name,child);
-      return send(res,202,{success:true,status:'starting',serial:'emulator-5580'});
+      child.on('error',()=>{if(managedAvds.get(name)?.child===child)managedAvds.delete(name);});
+      child.on('exit',()=>{if(managedAvds.get(name)?.child===child)managedAvds.delete(name);});
+      managedAvds.set(name,{child,status:'starting',startedAt:Date.now()});
+      return send(res,202,{success:true,status:'starting',serial:MANAGED_SERIAL});
     }
     const match=/^\/devices\/([^/]+)\/(screenshot|action|apps|install)$/.exec(url.pathname);
     if (!match || !validSerial(match[1])) return send(res,404,{error:'NOT_FOUND'});

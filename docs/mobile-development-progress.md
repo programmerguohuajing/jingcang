@@ -54,5 +54,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 非破坏性集成测试验证不存在的 AVD 返回 404、已运行的 Android_7_0_API24 重复启动返回 409；桌面浏览器及既有 Android 模拟器未被主动停止。
 - **新的 AVD 成功冷启动/停止尚未做真实运行测试**；Agent 进程重启后的托管恢复、并发端口分配和生产级调度仍待实现。
 
+### 2026-10-08 · Android AVD 冷启动实测通过
+- 修复 Agent 托管进程跟踪方式：维护 child/startedAt/status，AVD 列表展示启动中、已就绪和超时状态。
+- 停止前核对 `emulator-5580` 的 AVD 名称；对于启动完毕的模拟器使用 `adb emu kill` 正常关机；不触碰其他端口或非托管实例。
+- 修复控制台模拟器启停 POST 的 JSON Content-Type，避免 Fastify 返回 415，并显示运行状态。
+- **实际验收**：由 JingCang 控制 API 分别冷启动 `Android_5_0_API21` 和 `Pixel_2`，两次均达到 READY、成功停止，随后 ADB 枚举仅余原来的 `emulator-5554`，未影响它。
+- 一个 Android 7.0 会话已在数据库中占用设备，因此常规重复创建被正确拒绝；未强制清理他人/历史活动会话。
+- 仍待：Agent 重启后的托管状态恢复、镜像版本自动下载、Appium、真正的视频传输、生产资源配额及 iOS 接入。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

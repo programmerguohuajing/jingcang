@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 type Device = {id:string;kind:string;state:string;model?:string;osVersion?:string;booted?:boolean};
 type Session = {id:string;device_id:string;mode:string;status:string};
-type Profile = {id:string;model:string;apiLevel:number|null;systemImage:string;managed?:boolean};
+type Profile = {id:string;model:string;apiLevel:number|null;systemImage:string;managed?:boolean;lifecycle?:{status:string;serial:string}|null};
 export const MobileDevicesPage: React.FC = () => {
  const [devices,setDevices]=useState<Device[]>([]);
  const [profiles,setProfiles]=useState<Profile[]>([]);
@@ -45,7 +45,7 @@ export const MobileDevicesPage: React.FC = () => {
  }
  async function controlProfile(profile:Profile,operation:'start'|'stop'){
   if(!window.confirm(operation==='start'?'启动该 Android 模拟器？':'停止由当前 Agent 启动的模拟器？'))return;
-  const response=await fetch('/api/v1/mobile/profiles/'+encodeURIComponent(profile.id)+'/'+operation,{method:'POST'});
+  const response=await fetch('/api/v1/mobile/profiles/'+encodeURIComponent(profile.id)+'/'+operation,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
   const payload=await response.json();
   if(!response.ok)setError(payload.error?.error||'操作失败');
   else setError('');
@@ -89,7 +89,7 @@ export const MobileDevicesPage: React.FC = () => {
   {devices.length===0&&<p>暂无在线 Android 设备，请检查 Windows Agent、ADB 与 Docker 连通性。</p>}
   <h2 style={{marginTop:28}}>本机已安装的 Android 模拟器配置</h2>
   <p style={{color:'var(--text-muted)'}}>仅展示真实存在的 AVD，系统镜像尚未自动创建或安装。</p>
-  {profiles.map(p=><div key={p.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{p.id}</strong> · {p.model} · API {p.apiLevel??'未知'} <button className="btn-secondary" onClick={()=>void controlProfile(p,p.managed?'stop':'start')}>{p.managed?'停止托管模拟器':'启动模拟器'}</button><div style={{fontSize:12,color:'var(--text-muted)'}}>{p.systemImage}</div></div>)}
+  {profiles.map(p=><div key={p.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{p.id}</strong> · {p.model} · API {p.apiLevel??'未知'} <button className="btn-secondary" onClick={()=>void controlProfile(p,p.managed?'stop':'start')}>{p.managed?'停止托管模拟器':'启动模拟器'}</button> {p.lifecycle&&<span style={{fontSize:12,marginLeft:8}}>运行状态：{p.lifecycle.status==='ready'?'已就绪':p.lifecycle.status==='starting'?'启动中':p.lifecycle.status==='timeout'?'启动超时':p.lifecycle.status}</span>}<div style={{fontSize:12,color:'var(--text-muted)'}}>{p.systemImage}</div></div>)}
   <h2 style={{marginTop:28}}>移动会话</h2>
   {sessions.filter(s=>s.status==='READY').map(s=><div key={s.id} style={{marginBottom:12,display:'flex',gap:12,alignItems:'center'}}>
    <span>{s.device_id} · {s.mode==='phone'?'完整云手机':'浏览器模式'}</span>
