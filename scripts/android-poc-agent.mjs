@@ -9,6 +9,7 @@ const exec = promisify(execFile);
 const managedAvds = new Map();
 const MANAGED_SERIAL = 'emulator-5580';
 const STARTUP_TIMEOUT_MS = 120000;
+let lifecycleBusy = false;
 async function managedStatus(name){
   const entry=managedAvds.get(name);
   if(!entry)return null;
@@ -80,10 +81,16 @@ http.createServer(async(req,res)=>{
     if(req.method==='GET' && url.pathname==='/devices') return send(res,200,{devices:await devices()});
     if(req.method==='GET' && url.pathname==='/profiles'){
       const current=await profiles();
-      return send(res,200,{profiles:await Promise.all(current.map(async p=>({...p,managed:managedAvds.has(p.id),lifecycle:await managedStatus(p.id)})))});
+      const external=(await devices()).find(d=>d.id===MANAGED_SERIAL);
+      let externalName='';
+      if(external)externalName=(await adbText(['-s',MANAGED_SERIAL,'emu','avd','name']).catch(()=>'' )).split(/\r?\n/)[0].trim();
+      return send(res,200,{profiles:await Promise.all(current.map(async p=>({...p,managed:managedAvds.has(p.id),lifecycle:await managedStatus(p.id) || (p.id===externalName?{status:'external',serial:MANAGED_SERIAL}:null)})))});
     }
     const avdAction=/^\/profiles\/([A-Za-z0-9._-]{1,80})\/(start|stop)$/.exec(url.pathname);
     if(req.method==='POST' && avdAction){
+      if(lifecycleBusy)return send(res,409,{error:'LIFECYCLE_BUSY'});
+      lifecycleBusy=true;
+      try{
       const name=avdAction[1],operation=avdAction[2];
       if(operation==='stop'){
         const entry=managedAvds.get(name);
@@ -109,6 +116,7 @@ http.createServer(async(req,res)=>{
       child.on('exit',()=>{if(managedAvds.get(name)?.child===child)managedAvds.delete(name);});
       managedAvds.set(name,{child,status:'starting',startedAt:Date.now()});
       return send(res,202,{success:true,status:'starting',serial:MANAGED_SERIAL});
+      }finally{lifecycleBusy=false;}
     }
     const match=/^\/devices\/([^/]+)\/(screenshot|action|apps|install)$/.exec(url.pathname);
     if (!match || !validSerial(match[1])) return send(res,404,{error:'NOT_FOUND'});

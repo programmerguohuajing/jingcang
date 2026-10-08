@@ -49,6 +49,11 @@ if ($env:JINGCANG_TEST_AVD_BOOT -eq '1') {
 $available=@($devices.data.devices | Where-Object {$_.state -eq 'device' -and $_.booted})
 if ($available.Count -lt 1) { throw 'No booted Android devices' }
 $device=$available[0]
+$existing=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/sessions') -WebSession $session
+if (@($existing.data | Where-Object {$_.device_id -eq $device.id -and $_.status -eq 'READY'}).Count -gt 0){
+  Write-Output ('DEVICE_IN_USE_SKIP_SESSION_SMOKE='+$device.id)
+  exit 0
+}
 $created=Invoke-RestMethod -Uri ($base+'/api/v1/mobile/sessions') -Method Post -WebSession $session -ContentType 'application/json' -Body (@{deviceId=$device.id;mode='phone'}|ConvertTo-Json)
 if (-not $created.success) {throw 'Create failed'}
 $id=$created.data.id

@@ -62,5 +62,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 一个 Android 7.0 会话已在数据库中占用设备，因此常规重复创建被正确拒绝；未强制清理他人/历史活动会话。
 - 仍待：Agent 重启后的托管状态恢复、镜像版本自动下载、Appium、真正的视频传输、生产资源配额及 iOS 接入。
 
+### 2026-10-08 · Agent 启停互斥与恢复状态增强
+- Agent 增加 AVD 生命周期指令互斥，拒绝在上一条启停请求尚在处理时重复操作，避免竞争同一模拟器端口。
+- Agent 重新启动后若检测到 emulator-5580 已在运行但当前 Agent 未托管该进程，设备目录标为 external，前端禁用误导性的“启动”按钮；不会尝试停止外部进程。
+- 完成 lint、26 项单元测试、build、独立 Docker 重建与健康检查。
+- 现有 emulator-5554 已被活跃会话占用，端到端脚本会如实输出 DEVICE_IN_USE_SKIP_SESSION_SMOKE，不自动抢占或回收他人会话。
+- 注意：还没有验证对正在启动中的 Agent 进程进行强制重启的全流程恢复；生产级租约、持久化节点注册、心跳仍待实现。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。
