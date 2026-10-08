@@ -1,0 +1,12 @@
+import {readFile} from 'node:fs/promises';
+const env=await readFile('D:/codex/jingcang/.env','utf8');
+const password=/^JINGCANG_ADMIN_INITIAL_PASSWORD=(.+)$/m.exec(env)?.[1]?.trim();
+if(!password)throw Error('Dev credentials unavailable');
+const base='http://127.0.0.1:28088';
+const login=await fetch(base+'/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',password})});
+if(!login.ok)throw Error('Authentication failed');
+const headers={Cookie:login.headers.getSetCookie().map(s=>s.split(';')[0]).join('; ')};
+const sessions=await fetch(base+'/api/v1/mobile/sessions',{headers}).then(r=>r.json());
+const devices=await fetch(base+'/api/v1/mobile/devices',{headers}).then(r=>r.json());
+console.log('READY_LEASES='+JSON.stringify((sessions.data||[]).filter(s=>s.status==='READY').map(s=>({id:s.id,device:s.device_id,node:s.node_id}))));
+console.log('DEVICES='+JSON.stringify((devices.data?.devices||[]).map(x=>({id:x.id,available:x.available,leased:x.leased}))));
