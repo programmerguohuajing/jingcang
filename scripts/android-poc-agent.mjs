@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, readFile, readdir, stat } from 'node:fs/promises';
 import { tmpdir, homedir } from 'node:os';
 import path from 'node:path';
 import {appiumDiagnostics,runChromeSmoke} from './android-webdriver-automation.mjs';
@@ -62,6 +62,22 @@ async function profiles(){
     return {id:name,model,apiLevel:api?Number(api):null,systemImage:image};
   }));
 }
+async function systemImages(){
+  const root=path.join(process.env.ANDROID_HOME||path.join(process.env.LOCALAPPDATA||path.join(homedir(),'AppData','Local'),'Android','Sdk'),'system-images');
+  const result=[];
+  for(const level of await readdir(root,{withFileTypes:true}).catch(()=>[])){
+    if(!level.isDirectory()||!/^android-[0-9]+$/.test(level.name))continue;
+    for(const flavor of await readdir(path.join(root,level.name),{withFileTypes:true}).catch(()=>[])){
+      if(!flavor.isDirectory()||!/^[A-Za-z0-9_-]+$/.test(flavor.name))continue;
+      for(const abi of await readdir(path.join(root,level.name,flavor.name),{withFileTypes:true}).catch(()=>[])){
+        if(!abi.isDirectory()||!/^[A-Za-z0-9_-]+$/.test(abi.name))continue;
+        const dir=path.join(root,level.name,flavor.name,abi.name);
+        if((await stat(path.join(dir,'system.img')).catch(()=>null))?.isFile())result.push({apiLevel:Number(level.name.slice(8)),flavor:flavor.name,abi:abi.name,installed:true});
+      }
+    }
+  }
+  return result.sort((a,b)=>b.apiLevel-a.apiLevel);
+}
 function send(res, status, data) {
   res.writeHead(status, { 'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store' });
   res.end(JSON.stringify(data));
@@ -97,6 +113,7 @@ http.createServer(async(req,res)=>{
       const appium=await appiumDiagnostics();
       return send(res,200,{diagnostics,appiumHostAvailable:appium.available,appiumVersion:appium.version,chromedriverInstalled:appium.chromeDriverInstalled,automationReady:appium.available&&appium.chromeDriverInstalled,note:'Availability describes the host toolchain only; device-specific Chrome versions still require compatible Chromedriver.'});
     }
+    if(req.method==='GET' && url.pathname==='/system-images')return send(res,200,{images:await systemImages()});
     if(req.method==='GET' && url.pathname==='/devices') return send(res,200,{devices:await devices()});
     if(req.method==='GET' && url.pathname==='/profiles'){
       const current=await profiles();

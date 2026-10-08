@@ -10,3 +10,6 @@ const caps=await fetch(new URL('/capabilities',base),{headers:{Authorization:'Be
 console.log('CAPABILITIES_HTTP='+caps.status);
 if(caps.ok){const result=await caps.json();console.log('APPIUM_HOST_AVAILABLE='+result.appiumHostAvailable);console.log('CHROMEDRIVER_INSTALLED='+result.chromedriverInstalled);console.log('AUTOMATION_TOOLCHAIN_READY='+result.automationReady);}
 else process.exitCode=1;
+const images=await fetch(new URL('/system-images',base),{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});
+console.log('SYSTEM_IMAGES_HTTP='+images.status);
+if(images.ok){const data=await images.json();console.log('INSTALLED_ANDROID_IMAGES='+JSON.stringify(data.images||[]));}else process.exitCode=1;

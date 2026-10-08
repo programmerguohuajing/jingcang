@@ -44,6 +44,14 @@ export function registerMobileDeviceRoutes(server: FastifyInstance, auth: AuthSe
       return {success:true,data:await response.json()};
     }catch{return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
   });
+  server.get('/api/v1/mobile/system-images',async(req,reply)=>{
+    if(!userFor(req))return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
+    try{
+      const response=await agent('/system-images');
+      if(!response.ok)throw Error('IMAGES_UNAVAILABLE');
+      return {success:true,data:await response.json()};
+    }catch{return reply.code(503).send({success:false,error:{code:'AGENT_OFFLINE'}});}
+  });
   server.get('/api/v1/mobile/profiles',async(req,reply)=>{
     if(!userFor(req))return reply.code(401).send({success:false,error:{code:'UNAUTHORIZED'}});
     try{

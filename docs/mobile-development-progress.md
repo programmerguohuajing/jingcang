@@ -93,5 +93,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - 已验证 `node --check`、全项目 Lint、26 项单元测试、Build 全部通过；重启受令牌保护的 Agent 成功。
 - 当前 `emulator-5580` 历史 READY 租约的持有情况需要确认，**本次没有强行释放租约或重启已分配设备**；完整冷启动及自动化链路复测仍待可独占设备时完成。Android Studio/旧版镜像长启动与 ChromeDriver ADB 超时仍有生产化风险。
 
+### 2026-10-08 · Android 系统镜像目录与版本能力检测
+- Windows Agent 新增只读 `/system-images`：安全扫描 Android SDK 系统镜像目录，仅列出存在 `system.img` 的已安装镜像，无远程下载或修改操作。
+- Fastify 增加需登录认证的 `/api/v1/mobile/system-images`，Web 控制台增加 Android 系统镜像列表，明确目前还不能自动下载安装新版本。
+- 本机实测镜像：API 19/google_apis/x86、API 21/google_apis/x86_64、API 24/google_apis_playstore/x86、API 27/google_apis_playstore/x86；**没有 Android 14（API 34）**。
+- Docker 到 Windows Agent `SYSTEM_IMAGES_HTTP=200`，镜像清单与本机实际文件一致；Lint、26 项单测、Build 成功，独立 Docker 重建成功，两套网关 `28088/8088` 均返回 HTTP 200。
+- 待开发：Android 14 镜像获取/离线缓存、创建 AVD 的 API 与调度、低延迟画面、iOS 真机。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

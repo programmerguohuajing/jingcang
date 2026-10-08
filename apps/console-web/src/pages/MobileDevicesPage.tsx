@@ -2,10 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 type Device = {id:string;kind:string;state:string;model?:string;osVersion?:string;booted?:boolean};
 type Session = {id:string;device_id:string;mode:string;status:string};
 type Capability = {id:string;apiLevel:number|null;abi:string;chromeInstalled:boolean;securityPatch:string;appiumStatus:string};
+type SystemImage = {apiLevel:number;flavor:string;abi:string;installed:boolean};
 type Profile = {id:string;model:string;apiLevel:number|null;systemImage:string;managed?:boolean;lifecycle?:{status:string;serial:string}|null};
 export const MobileDevicesPage: React.FC = () => {
  const [devices,setDevices]=useState<Device[]>([]);
  const [profiles,setProfiles]=useState<Profile[]>([]);
+ const [images,setImages]=useState<SystemImage[]>([]);
  const [capabilities,setCapabilities]=useState<Capability[]>([]);
  const [appiumReady,setAppiumReady]=useState(false);
  const [sessions,setSessions]=useState<Session[]>([]);
@@ -22,7 +24,8 @@ export const MobileDevicesPage: React.FC = () => {
  const pointerStart=useRef<{x:number;y:number;time:number}|null>(null);
  const refresh=useCallback(async()=>{
   try{
-   const [r,s,p,c]=await Promise.all([fetch('/api/v1/mobile/devices'),fetch('/api/v1/mobile/sessions'),fetch('/api/v1/mobile/profiles'),fetch('/api/v1/mobile/capabilities')]);
+   const [r,s,p,c,i]=await Promise.all([fetch('/api/v1/mobile/devices'),fetch('/api/v1/mobile/sessions'),fetch('/api/v1/mobile/profiles'),fetch('/api/v1/mobile/capabilities'),fetch('/api/v1/mobile/system-images')]);
+   if(i.ok){const info=await i.json();setImages(info.data?.images||[]);}
    if(c.ok){const data=await c.json();setCapabilities(data.data?.diagnostics||[]);setAppiumReady(Boolean(data.data?.automationReady));}else{setCapabilities([]);setAppiumReady(false);}
    if(p.ok){const profilePayload=await p.json();setProfiles(profilePayload.data?.profiles||[]);}
    if(!r.ok||!s.ok)throw Error('登录已失效或服务不可用');
@@ -107,6 +110,9 @@ export const MobileDevicesPage: React.FC = () => {
   <h2 style={{marginTop:28}}>自动化环境诊断</h2><p>Appium 工具链：{appiumReady?'已连接（设备兼容性须实测）':'未就绪'}</p>
   <p style={{color:'var(--text-muted)'}}>展示实际检测结果，不代表 Appium 已安装或可以运行测试。</p>
   {capabilities.map(c=><div key={c.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{c.id}</strong> · API {c.apiLevel??'未知'} · {c.abi} · Chrome：{c.chromeInstalled?'已安装':'未安装'} · Appium：{appiumReady?'主机工具链在线':'不可用'}</div>)}
+  <h2 style={{marginTop:28}}>本机 Android 系统镜像</h2>
+  <p style={{fontSize:13,color:'var(--text-muted)'}}>仅列出已经下载并存在 system.img 的镜像，自动安装和自动创建机型尚未实现。</p>
+  {images.map(i=><div key={i.apiLevel+'-'+i.flavor+'-'+i.abi} style={{padding:9,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:7}}>Android API {i.apiLevel} · {i.flavor} · {i.abi} · 已安装</div>)}
   <h2 style={{marginTop:28}}>本机已安装的 Android 模拟器配置</h2>
   <p style={{color:'var(--text-muted)'}}>仅展示真实存在的 AVD，系统镜像尚未自动创建或安装。</p>
   {profiles.map(p=><div key={p.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{p.id}</strong> · {p.model} · API {p.apiLevel??'未知'} <button className="btn-secondary" disabled={p.lifecycle?.status==='external'} onClick={()=>void controlProfile(p,p.managed?'stop':'start')}>{p.lifecycle?.status==='external'?'外部进程占用':p.managed?'停止托管模拟器':'启动模拟器'}</button> {p.lifecycle&&<span style={{fontSize:12,marginLeft:8}}>运行状态：{p.lifecycle.status==='ready'?'已就绪':p.lifecycle.status==='starting'?'启动中':p.lifecycle.status==='timeout'?'启动超时':p.lifecycle.status}</span>}<div style={{fontSize:12,color:'var(--text-muted)'}}>{p.systemImage}</div></div>)}
