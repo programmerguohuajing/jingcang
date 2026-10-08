@@ -87,5 +87,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-mobile-smoke.ps1
 - **平台端到端仍未通过最终验收**：第一次调用因 ChromeDriver 内部 ADB 命令超时及原 Nginx 60 秒超时返回 504；后续修复代理超时后，设备出现另一条 READY 租约（并非已释放的测试会话），未擅自删除该租约，因此无法重新分配。同一期间 Agent 启动 Pixel_2 有一次提前退出，已加强失败状态记录，但需继续复验。
 - 后续优先补齐：工具链/Agent 启动的持久化与回收、异步自动化任务/超时、安全隔离、Android 新系统版本镜像、低延迟画面，然后 Android 真机与 iOS Mac Agent。
 
+### 2026-10-08 · AVD 启动器退出状态排查与保护
+- 修复 Windows Android Agent 在 GUI 启动器退出时误判 QEMU 已失败的问题：优先通过 ADB 判断指定端口设备是否已启动；启动器退出并不直接意味着 Android 虚拟机退出。
+- AVD 子进程恢复为独立标准流（stdio ignore），避免 headless agent 管道长期持有或进程输出影响；保留启动异常状态和启动超时检测。
+- 已验证 `node --check`、全项目 Lint、26 项单元测试、Build 全部通过；重启受令牌保护的 Agent 成功。
+- 当前 `emulator-5580` 历史 READY 租约的持有情况需要确认，**本次没有强行释放租约或重启已分配设备**；完整冷启动及自动化链路复测仍待可独占设备时完成。Android Studio/旧版镜像长启动与 ChromeDriver ADB 超时仍有生产化风险。
+
 ### 下一阶段任务
 优先 AND-003/004/005/006 的剩余部分：Android 14 等镜像、自动建机、实时流媒体与 Appium。随后 AND-007～016 的正式 Provider、会话资源调度、权限与独立 Agent 注册体系。之后处理 Linux KVM/真机/离线，最后 iOS 真机。

@@ -15,9 +15,9 @@ const automationBusy = new Set();
 async function managedStatus(name){
   const entry=managedAvds.get(name);
   if(!entry)return null;
-  if(entry.status==='failed')return {status:'failed',serial:MANAGED_SERIAL,errorCode:'EMULATOR_PROCESS_EXITED'};
   const online=(await devices()).find(d=>d.id===MANAGED_SERIAL);
   if(online?.booted){entry.status='ready';return {status:'ready',serial:MANAGED_SERIAL};}
+  if(entry.status==='failed')return {status:'failed',serial:MANAGED_SERIAL,errorCode:'EMULATOR_PROCESS_EXITED'};
   if(Date.now()-entry.startedAt>STARTUP_TIMEOUT_MS){
     entry.status='timeout';return {status:'timeout',serial:MANAGED_SERIAL};
   }
@@ -131,11 +131,11 @@ http.createServer(async(req,res)=>{
       const list=await profiles();
       if(!list.some(p=>p.id===name))return send(res,404,{error:'AVD_NOT_FOUND'});
       if([...managedAvds.values()].some(v=>v.status!=='failed'))return send(res,409,{error:'POC_EMULATOR_LIMIT'});
-      const child=spawn(emulator,['-avd',name,'-port','5580','-no-snapshot-save'],{detached:false,stdio:['ignore','ignore','pipe'],windowsHide:true});
+      const child=spawn(emulator,['-avd',name,'-port','5580','-no-snapshot-save'],{detached:false,stdio:'ignore',windowsHide:true});
       const entry={child,status:'starting',startedAt:Date.now(),error:''};
-      child.stderr.on('data',chunk=>{entry.error=(entry.error+String(chunk)).slice(-900);});
+      // Emulator GUI launcher may fork QEMU; do not pipe stderr through a headless agent.
       child.on('error',error=>{if(managedAvds.get(name)?.child===child){entry.status='failed';entry.error=String(error.message);}});
-      child.on('exit',(code,signal)=>{if(managedAvds.get(name)?.child===child){entry.status='failed';entry.error=('Process exit '+code+' '+(signal||'')+' '+entry.error).slice(-900);}});
+      child.on('exit',(code,signal)=>{if(managedAvds.get(name)?.child===child){entry.error=('Launcher exit '+code+' '+(signal||'')+' '+entry.error).slice(-900);/* QEMU may outlive emulator.exe launcher; readiness is checked via ADB. */}});
       managedAvds.set(name,entry);
       return send(res,202,{success:true,status:'starting',serial:MANAGED_SERIAL});
       }finally{lifecycleBusy=false;}
