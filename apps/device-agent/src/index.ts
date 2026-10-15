@@ -13,8 +13,10 @@ import { SimulatorProvider } from './provider/ios.js';
  *   JINGCANG_NODE_ID        节点 ID（必填）
  *   JINGCANG_DEVICE_PLATFORM android | ios（默认 android）
  *   JINGCANG_CONTROL_API_URL 控制面地址（用于注册/心跳）
- *   JINGCANG_AGENT_TOKEN    可选：若已下发，则跳过 enroll 直接使用
+ *   JINGCANG_NODE_CREDENTIAL 节点心跳凭证（enroll 返回的 credential；未设置时回退到 JINGCANG_AGENT_TOKEN）
+ *   JINGCANG_AGENT_TOKEN    本 Agent 服务的调用令牌（须与 enroll 时登记的 agentToken 一致）
  *   JINGCANG_AGENT_PORT     本机监听端口（默认 7580）
+ *   JINGCANG_AGENT_HOST     本机监听地址（默认 127.0.0.1；控制面在 Docker/其他主机时设为 0.0.0.0）
  *   JINGCANG_HEARTBEAT_MS    心跳间隔（默认 30000）
  *   ANDROID_HOME             Android SDK 路径（EmulatorProvider 使用）
  */
@@ -25,8 +27,12 @@ async function main() {
     process.exit(1);
   }
   const controlApiUrl = process.env.JINGCANG_CONTROL_API_URL?.replace(/\/$/, '');
+  // 心跳凭证与服务调用令牌分开：前者是 enroll 返回的 credential（控制面验心跳），
+  // 后者是 enroll 时登记的 agentToken（控制面调本 Agent）。单 token 旧配置下两者回退为同一值。
+  const heartbeatToken = process.env.JINGCANG_NODE_CREDENTIAL || process.env.JINGCANG_AGENT_TOKEN;
   const agentToken = process.env.JINGCANG_AGENT_TOKEN;
   const port = Number(process.env.JINGCANG_AGENT_PORT || 7580);
+  const host = process.env.JINGCANG_AGENT_HOST || '127.0.0.1';
   const heartbeatMs = Number(process.env.JINGCANG_HEARTBEAT_MS || 30000);
   const devicePlatform = (process.env.JINGCANG_DEVICE_PLATFORM || 'android').toLowerCase();
   if (devicePlatform !== 'android' && devicePlatform !== 'ios') {
@@ -70,12 +76,12 @@ async function main() {
     transport,
     provider,
     intervalMs: heartbeatMs,
-    token: agentToken
+    token: heartbeatToken
   });
 
   const server = createAgentServer(provider, { token: agentToken });
-  await server.listen({ port, host: '127.0.0.1' });
-  console.log(`[device-agent] 已监听 http://127.0.0.1:${port}（节点 ${nodeId}，平台 ${devicePlatform}）`);
+  await server.listen({ port, host });
+  console.log(`[device-agent] 已监听 http://${host}:${port}（节点 ${nodeId}，平台 ${devicePlatform}）`);
 
   // 立即执行一次注册/心跳，再进入周期循环
   void controller.tick();

@@ -93,10 +93,18 @@ export function registerMobileDeviceRoutes(
       return reply.code(400).send({ success: false, error: { code: 'INVALID_AGENT_TOKEN' } });
     const credential = crypto.randomBytes(32).toString('hex');
     const digest = crypto.createHash('sha256').update(credential).digest('hex');
+    const now = new Date().toISOString();
     db.prepare('INSERT INTO mobile_node_credentials(node_id,token_hash,created_at) VALUES(?,?,?)').run(
       nodeId,
       digest,
-      new Date().toISOString()
+      now
+    );
+    // 反向桥接（统一注册路由已做 device→mobile 桥接）：经 mobile enroll 的节点
+    // 也写入 device_node_credentials，使新版 Device Agent 内置心跳（统一路由）可直接使用该凭证。
+    db.prepare('INSERT OR IGNORE INTO device_node_credentials(node_id,token_hash,created_at) VALUES(?,?,?)').run(
+      nodeId,
+      digest,
+      now
     );
     if (body?.agentUrl) {
       router.upsertEndpoint(
@@ -207,6 +215,11 @@ export function registerMobileDeviceRoutes(
     const result = db
       .prepare('UPDATE mobile_node_credentials SET revoked_at=? WHERE node_id=? AND revoked_at IS NULL')
       .run(new Date().toISOString(), id);
+    // 同步吊销统一凭证表（enroll 时已双向桥接），避免吊销后统一心跳路由仍接受该凭证。
+    db.prepare('UPDATE device_node_credentials SET revoked_at=? WHERE node_id=? AND revoked_at IS NULL').run(
+      new Date().toISOString(),
+      id
+    );
     return { success: true, data: { revoked: result.changes > 0 } };
   });
 

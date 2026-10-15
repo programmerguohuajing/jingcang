@@ -13,6 +13,7 @@
 - 控制台移动设备页：kind/os 文案平台化（iOS 模拟器/iOS 真机），设备池 KPI 与空态文案更新，节点页新增"iOS 模拟器"区（创建完整云手机/浏览器会话），远程设备目录行沿用统一 kind 文案。
 - 单测：新增 `ios.test.ts` 20 项（假命令执行器模拟 simctl/idb/unzip：JSON 解析与状态映射、托管前缀保护、幂等启停、触控降级、安装包校验与 Bundle ID、截图 PNG 魔数与临时文件清理），device-agent 共 29 项全部通过；`pnpm --recursive build`、`lint` 全过；console-web 生产构建通过。
 - Mac 节点接入方式：在 Mac 上 `JINGCANG_DEVICE_PLATFORM=ios JINGCANG_NODE_ID=<节点> JINGCANG_CONTROL_API_URL=<控制面> node dist/index.js`（需 Xcode Command Line Tools；触控需另装 idb）。
+- 接入链路补齐（2026-10-15 追加）：`POST /api/v1/mobile/nodes/enroll` 反向桥接凭证到 `device_node_credentials`（原只有统一注册→mobile 单向桥接），使 mobile enroll 的节点可直接用新版 Agent 内置心跳；mobile revoke 同步吊销统一凭证表；Agent 拆分 `JINGCANG_NODE_CREDENTIAL`（心跳凭证）与 `JINGCANG_AGENT_TOKEN`（服务调用令牌，须与 enroll 登记一致），单 token 旧配置回退兼容；新增 `JINGCANG_AGENT_HOST`（默认 127.0.0.1，Docker 内控制面需 0.0.0.0）。新增 `scripts/run-ios-agent.sh` Mac 一键启动脚本（含 enroll 示例与前置检查）。注意 enroll 的 agentUrl 必须是非回环 http 时改用 https（validAgentUrl 限制）。
 
 ### 当前实现边界
 - **无 Mac 真机验证**：本机为 Linux，仅完成编码与单测；simctl/idb/unzip 的真实行为、截图轮询帧率、idb 坐标系（point vs pixel）、`simctl install` 对各类 .app 包的兼容性均待 Mac 实测。
