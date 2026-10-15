@@ -1,14 +1,15 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-import { AndroidProvider } from './provider/android.js';
+import type { AndroidProvider } from './provider/android.js';
+import type { IosProvider } from './provider/ios.js';
 import { DeviceActionSchema } from '@jingcang/device-contracts';
 
 /**
- * Device Agent HTTP 服务（AND-008）
+ * Device Agent HTTP 服务（AND-008，IOS-011 起支持 iOS Provider）
  *
  * 暴露控制面所需的所有设备操作端点；路径与 control-api 的 agent() 代理一一对应。
  * 若配置了 JINGCANG_AGENT_TOKEN，则要求请求携带一致的 Bearer 令牌（Agent 侧双向认证）。
  */
-export function createAgentServer(provider: AndroidProvider, opts: { token?: string } = {}): FastifyInstance {
+export function createAgentServer(provider: AndroidProvider | IosProvider, opts: { token?: string } = {}): FastifyInstance {
   const server = Fastify({ logger: false });
 
   if (opts.token) {
@@ -61,9 +62,17 @@ export function createAgentServer(provider: AndroidProvider, opts: { token?: str
   });
 
   server.post('/profiles/create', async (req, reply) => {
-    const apiLevel = (req.body as any)?.apiLevel;
+    const body = (req.body as any) ?? {};
     try {
-      return await provider.createProfile(Number(apiLevel));
+      // iOS：按 deviceTypeId + runtimeId 创建模拟器；Android：按 apiLevel 创建 AVD
+      if (provider.platform === 'ios') {
+        return await (provider as IosProvider).createProfile(
+          String(body.deviceTypeId ?? ''),
+          String(body.runtimeId ?? ''),
+          typeof body.name === 'string' ? body.name : undefined
+        );
+      }
+      return await (provider as AndroidProvider).createProfile(Number(body.apiLevel));
     } catch (e: any) {
       return replyCode(reply, e);
     }

@@ -1,6 +1,26 @@
 # JingCang 移动测试平台开发记录
 
-## 2026-10-08 · Android 独立开发阶段
+## 2026-10-15 · iOS Simulator 远程支持（P1 软件基础层）
+
+分支：`feat/mobile-device-cloud`，对应计划 IOS-011。
+
+### 已完成并验证
+- Device Agent 新增 `apps/device-agent/src/provider/ios.ts`（`SimulatorProvider`，platform `ios`）：基于 `xcrun simctl` 实现模拟器发现（`list devices --json`，兼容新/旧 runtime key）、iOS Runtime 与 iPhone 机型枚举、按 `deviceTypeId`+`runtimeId` 创建、boot/shutdown/delete、PNG 截图（`simctl io screenshot`）、Safari 导航（`simctl openurl`）、.app 安装（zip 解压后 `simctl install`，读 Info.plist 取 Bundle ID）。
+- 触控经可选 `idb`（Facebook iOS Development Bridge）下发 tap/swipe；未安装时返回 `INPUT_UNAVAILABLE` 明确降级。simctl 本身无点击/滑动/按键 API，home/back/key/rotate 明确返回 `UNSUPPORTED_ACTION`，不虚假实现。
+- 仅管理名字以 `JingCang-` 开头的模拟器（创建/删除/启停），不触碰用户自有模拟器；xcrun 缺失时抛 `PROVIDER_UNAVAILABLE`，与 Android Provider 口径一致。
+- 新增 `provider/types.ts` 共享类型与可注入 `CommandRunner`（沿用 AgentController 的传输注入思想）；`controller.ts` 心跳平台改为按宿主自动识别（darwin→macos，替代原硬编码 windows），Provider 类型放宽为 Android/iOS 通用；`index.ts` 经 `JINGCANG_DEVICE_PLATFORM=ios` 选择 iOS Provider；`/profiles/create` 按平台分发参数。
+- 控制面 `mobile-devices.ts` 心跳设备 kind 校验改用契约 `DEVICE_KINDS`（放行 `ios-simulator`/`ios-real`），state 校验对齐契约 `DEVICE_STATES`（含 booting/busy）；断线回收注释改为平台通用。会话/截图/MJPEG 流/H.264 代理链路均为平台无关，无需改动。
+- 控制台移动设备页：kind/os 文案平台化（iOS 模拟器/iOS 真机），设备池 KPI 与空态文案更新，节点页新增"iOS 模拟器"区（创建完整云手机/浏览器会话），远程设备目录行沿用统一 kind 文案。
+- 单测：新增 `ios.test.ts` 20 项（假命令执行器模拟 simctl/idb/unzip：JSON 解析与状态映射、托管前缀保护、幂等启停、触控降级、安装包校验与 Bundle ID、截图 PNG 魔数与临时文件清理），device-agent 共 29 项全部通过；`pnpm --recursive build`、`lint` 全过；console-web 生产构建通过。
+- Mac 节点接入方式：在 Mac 上 `JINGCANG_DEVICE_PLATFORM=ios JINGCANG_NODE_ID=<节点> JINGCANG_CONTROL_API_URL=<控制面> node dist/index.js`（需 Xcode Command Line Tools；触控需另装 idb）。
+
+### 当前实现边界
+- **无 Mac 真机验证**：本机为 Linux，仅完成编码与单测；simctl/idb/unzip 的真实行为、截图轮询帧率、idb 坐标系（point vs pixel）、`simctl install` 对各类 .app 包的兼容性均待 Mac 实测。
+- iOS 无 H.264 实时流（`simctl recordVideo` 只写文件），`startVideoStream` 返回 null，控制面自动回退 MJPEG 截图轮询；低延迟视频为后续项。
+- 前端"安装测试包"入口仍只接受 APK；iOS 的 .app 安装目前仅经 Agent API 可用，未做 Web 上传入口。
+- control-api 3 项 `migrations.test.ts` 失败为分支既有问题（与本次改动无关，已在干净分支复现：期望迁移版本数 4，实际 3）。
+
+### 2026-10-08 · Android 独立开发阶段
 
 分支：`feat/mobile-device-cloud`
 

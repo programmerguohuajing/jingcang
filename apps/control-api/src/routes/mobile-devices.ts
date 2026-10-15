@@ -6,6 +6,7 @@ import { PassThrough } from 'node:stream';
 import { SessionCoreService } from '../services/session-core.service.js';
 import { ViewerTokenService } from '../services/viewer-token.service.js';
 import { NodeRouterService } from '../services/node-router.service.js';
+import { DEVICE_KINDS } from '@jingcang/device-contracts';
 
 /**
  * 移动设备会话路由（跨节点真实设备控制与调度 + 失联恢复 + Android 真机池）
@@ -149,8 +150,8 @@ export function registerMobileDeviceRoutes(
             !x ||
             typeof x.id !== 'string' ||
             !/^[a-zA-Z0-9._:-]{1,80}$/.test(x.id) ||
-            !['android-emulator', 'android-real'].includes(x.kind) ||
-            !['device', 'offline', 'unauthorized'].includes(x.state) ||
+            !(DEVICE_KINDS as readonly string[]).includes(x.kind) ||
+            !['device', 'offline', 'unauthorized', 'booting', 'busy'].includes(x.state) ||
             typeof x.booted !== 'boolean'
         ))
     )
@@ -180,8 +181,8 @@ export function registerMobileDeviceRoutes(
         db.exec('ROLLBACK');
         throw error;
       }
-      // Android 真机/模拟器断线检测：节点在线但设备从 ADB 清单消失或失效
-      // → 安全释放该设备上的活动会话与租约，避免真机拔出后设备被"幽灵占用"。
+      // 设备断线检测（Android 真机/模拟器、iOS 模拟器通用）：节点在线但设备从清单消失或失效
+      // → 安全释放该设备上的活动会话与租约，避免设备拔出/关闭后被"幽灵占用"。
       const reported = new Set(
         body.devices.filter((d) => d.state === 'device' && d.booted).map((d) => d.id)
       );

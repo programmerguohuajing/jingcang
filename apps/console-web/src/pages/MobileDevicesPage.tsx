@@ -8,6 +8,8 @@ type Capability = {id:string;apiLevel:number|null;abi:string;chromeInstalled:boo
 type SystemImage = {apiLevel:number;flavor:string;abi:string;installed:boolean};
 type Profile = {id:string;model:string;apiLevel:number|null;systemImage:string;managed?:boolean;lifecycle?:{status:string;serial:string}|null};
 type RemoteDevice = {nodeId:string;id:string;kind:string;state:string;booted:boolean;online:boolean;routable?:boolean;available?:boolean;leased?:boolean};
+const kindLabel=(k:string)=>k==='android-emulator'?'Android 模拟器':k==='android-real'?'Android 真机':k==='ios-simulator'?'iOS 模拟器':k==='ios-real'?'iOS 真机':k;
+const osLabel=(k:string,os?:string)=>(k.startsWith('ios')?'iOS':'Android')+' '+(os||'未知');
 export const MobileDevicesPage: React.FC = () => {
  const [tab,setTab]=useState<'devices'|'nodes'|'environment'|'sessions'>('devices');
  const [devices,setDevices]=useState<Device[]>([]);
@@ -141,11 +143,11 @@ export const MobileDevicesPage: React.FC = () => {
  }
  return <main className="mobile-workspace">
   <header className="mobile-page-header">
-   <div className="mobile-heading"><div className="mobile-heading-icon"><MonitorSmartphone size={24}/></div><div><div className="mobile-eyebrow">DEVICE CLOUD / 设备云</div><h1>移动设备池</h1><p>统一管理 Android 设备、Agent 节点、自动化环境与远程会话</p></div></div>
+   <div className="mobile-heading"><div className="mobile-heading-icon"><MonitorSmartphone size={24}/></div><div><div className="mobile-eyebrow">DEVICE CLOUD / 设备云</div><h1>移动设备池</h1><p>统一管理 Android / iOS 设备、Agent 节点、自动化环境与远程会话</p></div></div>
    <div className="mobile-header-actions"><span className={'mobile-status '+(status==='online'?'is-online':'is-offline')}><span className="mobile-dot"/>{status==='online'?'Agent 在线':status==='loading'?'检测中':'Agent 离线'}</span><button className="btn-secondary mobile-refresh" onClick={()=>void refresh()}><RefreshCw size={15}/>刷新数据</button></div>
   </header>
   <div className="mobile-kpis">
-   <div className="card mobile-kpi"><div className="mobile-kpi-icon"><Smartphone size={21}/></div><div><span>已发现设备</span><strong>{devices.length+remoteDevices.filter(d=>!devices.some(x=>x.id===d.id&&x.nodeId===d.nodeId)).length}</strong><small>Android 模拟器 / 真机</small></div></div>
+   <div className="card mobile-kpi"><div className="mobile-kpi-icon"><Smartphone size={21}/></div><div><span>已发现设备</span><strong>{devices.length+remoteDevices.filter(d=>!devices.some(x=>x.id===d.id&&x.nodeId===d.nodeId)).length}</strong><small>Android / iOS 设备</small></div></div>
    <div className="card mobile-kpi"><div className="mobile-kpi-icon"><Wifi size={21}/></div><div><span>可用设备</span><strong>{devices.filter(d=>d.available).length+remoteDevices.filter(d=>d.available&&!devices.some(x=>x.id===d.id&&x.nodeId===d.nodeId)).length}</strong><small>可创建独占会话</small></div></div>
    <div className="card mobile-kpi"><div className="mobile-kpi-icon"><Server size={21}/></div><div><span>在线节点</span><strong>{agentNodes.filter(n=>n.online).length}</strong><small>共 {agentNodes.length} 个登记节点</small></div></div>
    <div className="card mobile-kpi"><div className="mobile-kpi-icon"><Activity size={21}/></div><div><span>活动会话</span><strong>{sessions.filter(s=>s.status==='READY').length}</strong><small>Appium {appiumReady?'已就绪':'未就绪'}</small></div></div>
@@ -157,12 +159,12 @@ export const MobileDevicesPage: React.FC = () => {
   {tab==='devices'&&<section className="card mobile-panel"><div className="mobile-section-heading"><div><h2><Smartphone size={19}/> 设备资源</h2><p>选择在线设备，启动完整云手机或移动浏览器会话</p></div></div><label className="mobile-url-field">浏览器起始网址：<input value={startUrl} onChange={e=>setStartUrl(e.target.value)} style={{width:360,maxWidth:'100%',marginLeft:10}} placeholder="https://example.com" /></label>
   <div className="mobile-device-grid">
    {devices.map(d=><section key={d.nodeId+':'+d.id} className="mobile-device-card">
-    <h3>{d.model||d.id}</h3><p>{d.kind==='android-emulator'?'Android 模拟器':'Android 真机'} · Android {d.osVersion||'未知'} · 节点 {d.nodeId||'windows-local-dev'}</p>
+    <h3>{d.model||d.id}</h3><p>{kindLabel(d.kind)} · {osLabel(d.kind,d.osVersion)} · 节点 {d.nodeId||'windows-local-dev'}</p>
     <p>状态：{d.leased?'已被会话独占':d.booted?'就绪':d.state}</p>
     <div style={{display:'flex',gap:8}}><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'phone',d.nodeId)}>完整云手机</button><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'browser',d.nodeId)}>浏览器模式</button></div>
    </section>)}
   </div>
-  {devices.length===0&&<p>暂无在线 Android 设备，请检查各节点 Agent、ADB 与网络连通性。</p>}
+  {devices.length===0&&<p>暂无在线设备，请检查各节点 Agent（Android 需 ADB，iOS 模拟器需 macOS 节点）与网络连通性。</p>}
   </section>}
   {tab==='nodes'&&<section className="card mobile-panel"><div className="mobile-section-heading"><div><h2><Server size={19}/> Agent 节点</h2><p>认证心跳、节点可调度性与最后在线时间</p></div></div>
   {agentNodes.map(n=><p key={n.node_id}>{n.node_id} · {n.platform} · {n.online?'最近 45 秒有心跳':'心跳已超时'} · {n.routable?'可调度':(n.online?'已在线未登记端点':'不可调度')} · 最后检测 {n.last_seen_at}</p>)}
@@ -176,9 +178,17 @@ export const MobileDevicesPage: React.FC = () => {
   </div>)}
   {remoteDevices.filter(d=>d.kind==='android-real').length===0&&<p>当前没有可用的 Android 真机接入。将真机通过 USB 连接并授权调试后，由节点 Agent 自动发现并纳入真机池。</p>}
   </section>}
+  {tab==='nodes'&&<section className="card mobile-panel"><h2><Smartphone size={19}/> iOS 模拟器</h2>
+  <p style={{fontSize:13,color:'var(--text-muted)'}}>由 macOS 节点经 xcrun simctl 发现的 iOS 模拟器；触控需要节点安装 idb，未安装时仅支持画面查看、截图与 Safari 导航。</p>
+  {remoteDevices.filter(d=>d.kind==='ios-simulator').map(d=><div key={d.nodeId+':'+d.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8,display:'flex',gap:10,alignItems:'center',justifyContent:'space-between'}}>
+   <div><strong>{d.id}</strong> · 节点 {d.nodeId} · iOS 模拟器 · {d.online?(d.booted?'在线已启动':d.state):'节点离线'}{d.leased&&' · 已被会话独占'}</div>
+   <div style={{display:'flex',gap:8}}><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'phone',d.nodeId)}>完整云手机</button><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'browser',d.nodeId)}>浏览器模式</button></div>
+  </div>)}
+  {remoteDevices.filter(d=>d.kind==='ios-simulator').length===0&&<p>当前没有 macOS 节点上报 iOS 模拟器。在 Mac 上以 JINGCANG_DEVICE_PLATFORM=ios 启动 Agent 即可接入（需要 Xcode Command Line Tools）。</p>}
+  </section>}
   {tab==='nodes'&&<section className="card mobile-panel"><h2><Radio size={19}/> 远程节点设备目录</h2>
   <p style={{fontSize:13,color:'var(--text-muted)'}}>设备由各节点独立认证上报；已登记端点的在线节点设备可创建独占会话，操作请求会按节点归属安全转发。</p>
-  {remoteDevices.map(d=><div key={d.nodeId+':'+d.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8,display:'flex',gap:10,alignItems:'center',justifyContent:'space-between'}}><div><strong>{d.id}</strong> · 节点 {d.nodeId} · {d.kind==='android-real'?'Android 真机':'Android 模拟器'} · {d.online?(d.booted?'在线已启动':d.state):'节点离线'}{d.leased&&' · 已被独占'}</div><div style={{display:'flex',gap:8}}><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'phone',d.nodeId)}>完整云手机</button><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'browser',d.nodeId)}>浏览器模式</button></div></div>)}
+  {remoteDevices.map(d=><div key={d.nodeId+':'+d.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8,display:'flex',gap:10,alignItems:'center',justifyContent:'space-between'}}><div><strong>{d.id}</strong> · 节点 {d.nodeId} · {kindLabel(d.kind)} · {d.online?(d.booted?'在线已启动':d.state):'节点离线'}{d.leased&&' · 已被独占'}</div><div style={{display:'flex',gap:8}}><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'phone',d.nodeId)}>完整云手机</button><button className="btn-secondary" disabled={!d.available} onClick={()=>void create(d.id,'browser',d.nodeId)}>浏览器模式</button></div></div>)}
   {remoteDevices.length===0&&<p>尚无远程节点设备上报。</p>}
   </section>}
   {tab==='environment'&&<section className="card mobile-panel"><h2><Activity size={19}/> 自动化环境诊断</h2><p>Appium 工具链：{appiumReady?'已连接（设备兼容性须实测）':'未就绪'}</p>
@@ -193,7 +203,7 @@ export const MobileDevicesPage: React.FC = () => {
   <p style={{color:'var(--text-muted)'}}>展示实际存在的 AVD；仅允许删除由 JingCang 创建且没有运行的测试配置。</p>
   {profiles.map(p=><div key={p.id} style={{padding:10,border:'1px solid var(--nav-border)',borderRadius:8,marginBottom:8}}><strong>{p.id}</strong> · {p.model} · API {p.apiLevel??'未知'} <button className="btn-secondary" disabled={managedPortBusy||p.lifecycle?.status==='external'} onClick={()=>void controlProfile(p,p.managed?'stop':'start')}>{p.lifecycle?.status==='external'?'外部进程占用':p.managed?'停止托管模拟器':'启动模拟器'}</button> {/^JingCang_Test_API(?:24|27)_x86$|^JingCang_Test_API34_x86_64$/.test(p.id)&&<button className="btn-secondary" disabled={p.managed||p.lifecycle?.status==='external'} onClick={()=>void deleteAvd(p.id)}>删除测试 AVD</button>} {p.lifecycle&&<span style={{fontSize:12,marginLeft:8}}>运行状态：{p.lifecycle.status==='ready'?'已就绪':p.lifecycle.status==='starting'?'启动中':p.lifecycle.status==='timeout'?'启动超时':p.lifecycle.status}</span>}<div style={{fontSize:12,color:'var(--text-muted)'}}>{p.systemImage}</div></div>)}
   </section>}
-  {tab==='sessions'&&<section className="card mobile-panel"><div className="mobile-section-heading"><div><h2><Play size={19}/> 移动会话</h2><p>连接正在运行的 Android 设备，管理远程操作和画面流</p></div></div>
+  {tab==='sessions'&&<section className="card mobile-panel"><div className="mobile-section-heading"><div><h2><Play size={19}/> 移动会话</h2><p>连接正在运行的移动设备，管理远程操作和画面流</p></div></div>
   {sessions.filter(s=>s.status==='READY').map(s=><div key={s.id} style={{marginBottom:12,display:'flex',gap:12,alignItems:'center'}}>
    <span>{s.device_id} · {s.mode==='phone'?'完整云手机':'浏览器模式'}</span>
    <button className="btn-secondary" onClick={()=>{setSelected(s);setH264(true);setStreaming(false);}}>连接画面</button><button className="btn-secondary" onClick={()=>void stop(s)}>结束</button>
@@ -205,7 +215,7 @@ export const MobileDevicesPage: React.FC = () => {
    <button className="btn-secondary" onClick={()=>{setH264(false);setStreaming(x=>!x);setStreamEpoch(x=>x+1);}}>{streaming?'切换定时截图':'开启连续画面（MJPEG）'}</button>
    {selected.mode==='browser'&&<div style={{marginBottom:12}}><button className="btn-secondary" disabled={automating||!appiumReady} onClick={()=>void runAutomation()}>{automating?'Appium 自动化执行中…':'执行 Chrome 示例自动化'}</button> {automationResult&&<span role="status" style={{color:'#059669'}}>{automationResult}</span>}<p style={{fontSize:12}}>自动运行预设 https://example.com/ 页面标题检查，使用设备的独立 WebDriver 会话。</p></div>}
    {h264&&<H264Canvas key={selected.id+':'+h264Epoch} sessionId={selected.id} onEnded={()=>{setTimeout(()=>setH264Epoch(x=>x+1),1000);}} onFailure={()=>{setH264(false);setStreaming(true);setError('H.264 视频不可用，已自动切换 MJPEG');}} onGesture={(x1,y1,x2,y2,duration)=>{if(Math.hypot(x2-x1,y2-y1)<15)void action({type:'tap',x:x2,y:y2});else void action({type:'swipe',x1,y1,x2,y2,duration:Math.max(100,Math.min(2000,duration))});}}/>}
-   {!h264&&(shot||streaming)&&<img src={streaming?'/api/v1/mobile/sessions/'+encodeURIComponent(selected.id)+'/stream?v='+streamEpoch:shot} onError={()=>{if(streaming){setStreaming(false);setError('连续画面连接已断开，已恢复定时截图');}}} alt="Android 设备画面" style={{display:'block',maxWidth:'100%',maxHeight:650,cursor:'crosshair',margin:'auto',touchAction:'none'}}
+   {!h264&&(shot||streaming)&&<img src={streaming?'/api/v1/mobile/sessions/'+encodeURIComponent(selected.id)+'/stream?v='+streamEpoch:shot} onError={()=>{if(streaming){setStreaming(false);setError('连续画面连接已断开，已恢复定时截图');}}} alt="移动设备画面" style={{display:'block',maxWidth:'100%',maxHeight:650,cursor:'crosshair',margin:'auto',touchAction:'none'}}
     onPointerDown={e=>{const b=e.currentTarget.getBoundingClientRect();pointerStart.current={x:Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y:Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight),time:Date.now()};e.currentTarget.setPointerCapture(e.pointerId);}}
     onPointerUp={e=>{const start=pointerStart.current;pointerStart.current=null;if(!start)return;const b=e.currentTarget.getBoundingClientRect();const x=Math.round((e.clientX-b.left)/b.width*e.currentTarget.naturalWidth),y=Math.round((e.clientY-b.top)/b.height*e.currentTarget.naturalHeight);if(Math.hypot(x-start.x,y-start.y)<15)void action({type:'tap',x,y});else void action({type:'swipe',x1:start.x,y1:start.y,x2:x,y2:y,duration:Math.max(100,Math.min(2000,Date.now()-start.time))});}}
     onPointerCancel={()=>{pointerStart.current=null;}}/>}

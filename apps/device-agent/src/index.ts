@@ -1,13 +1,17 @@
 import { createAgentServer } from './server.js';
 import { AgentController, type ControlApiTransport } from './controller.js';
 import { EmulatorProvider } from './provider/android.js';
+import { SimulatorProvider } from './provider/ios.js';
 
 /**
- * Device Agent 入口（AND-008 / AND-009）
+ * Device Agent 入口（AND-008 / AND-009，IOS-011 起支持 iOS）
  *
- * 启动原生（Windows）Android 设备 Agent：注册 → 心跳 → 设备发现 → 暴露操作端点。
+ * 启动设备 Agent：注册 → 心跳 → 设备发现 → 暴露操作端点。
+ * 通过 JINGCANG_DEVICE_PLATFORM 选择 Provider：android（默认，Windows/Linux）
+ * 或 ios（macOS 节点，基于 xcrun simctl）。
  * 配置：
  *   JINGCANG_NODE_ID        节点 ID（必填）
+ *   JINGCANG_DEVICE_PLATFORM android | ios（默认 android）
  *   JINGCANG_CONTROL_API_URL 控制面地址（用于注册/心跳）
  *   JINGCANG_AGENT_TOKEN    可选：若已下发，则跳过 enroll 直接使用
  *   JINGCANG_AGENT_PORT     本机监听端口（默认 7580）
@@ -24,8 +28,16 @@ async function main() {
   const agentToken = process.env.JINGCANG_AGENT_TOKEN;
   const port = Number(process.env.JINGCANG_AGENT_PORT || 7580);
   const heartbeatMs = Number(process.env.JINGCANG_HEARTBEAT_MS || 30000);
+  const devicePlatform = (process.env.JINGCANG_DEVICE_PLATFORM || 'android').toLowerCase();
+  if (devicePlatform !== 'android' && devicePlatform !== 'ios') {
+    console.error('[device-agent] JINGCANG_DEVICE_PLATFORM 仅支持 android | ios');
+    process.exit(1);
+  }
 
-  const provider = new EmulatorProvider(nodeId, { sdkRoot: process.env.ANDROID_HOME });
+  const provider =
+    devicePlatform === 'ios'
+      ? new SimulatorProvider(nodeId)
+      : new EmulatorProvider(nodeId, { sdkRoot: process.env.ANDROID_HOME });
 
   // 控制面传输实现（真实 fetch）
   const transport: ControlApiTransport = {
@@ -63,7 +75,7 @@ async function main() {
 
   const server = createAgentServer(provider, { token: agentToken });
   await server.listen({ port, host: '127.0.0.1' });
-  console.log(`[device-agent] 已监听 http://127.0.0.1:${port}（节点 ${nodeId}）`);
+  console.log(`[device-agent] 已监听 http://127.0.0.1:${port}（节点 ${nodeId}，平台 ${devicePlatform}）`);
 
   // 立即执行一次注册/心跳，再进入周期循环
   void controller.tick();

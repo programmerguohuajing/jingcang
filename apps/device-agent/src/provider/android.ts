@@ -3,6 +3,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { DeviceAction } from '@jingcang/device-contracts';
+import { DeviceInventory, ProviderUnavailable } from './types.js';
+
+// 保持既有导入路径兼容（controller/test 从 android.js 取类型）
+export type { DeviceInventory };
+export { ProviderUnavailable };
 
 /**
  * provider-android（AND-009）
@@ -12,13 +17,6 @@ import { DeviceAction } from '@jingcang/device-contracts';
  * 均按接口实现；真机驱动需要 Android SDK / ADB，未安装时相关方法抛出 PROVIDER_UNAVAILABLE，
  * 便于在缺 SDK 的环境安全编译与单测（控制面/契约测试不依赖真机）。
  */
-export interface DeviceInventory {
-  id: string;
-  kind: 'android-emulator' | 'android-real';
-  state: 'device' | 'offline' | 'unauthorized';
-  booted: boolean;
-}
-
 export interface ProfileInfo {
   id: string;
   displayName: string;
@@ -53,10 +51,6 @@ export interface AndroidProvider {
     uptimeSeconds: number;
     managedEmulatorCount: number;
   }>;
-}
-
-class ProviderUnavailable extends Error {
-  code = 'PROVIDER_UNAVAILABLE';
 }
 
 function adbAvailable(): boolean {

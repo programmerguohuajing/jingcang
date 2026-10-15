@@ -1,12 +1,24 @@
-import type { AndroidProvider, DeviceInventory } from './provider/android.js';
+import type { DeviceInventory, ProviderHealth } from './provider/types.js';
+import { nodePlatform } from './provider/types.js';
 import type { NodeHeartbeat } from '@jingcang/device-contracts';
 
+/**
+ * 心跳所需的 Provider 最小能力（Android / iOS 通用）。
+ */
 /**
  * 节点 ↔ 控制面 传输抽象（便于单测注入假实现）。
  */
 export interface ControlApiTransport {
   enroll(nodeId: string): Promise<{ credential: string }>;
   heartbeat(nodeId: string, token: string, payload: NodeHeartbeat): Promise<{ status: number }>;
+}
+
+/**
+ * 心跳所需的 Provider 最小能力（Android / iOS 通用）。
+ */
+export interface HeartbeatProvider {
+  health(): Promise<ProviderHealth>;
+  listDevices(): Promise<DeviceInventory[]>;
 }
 
 /**
@@ -25,7 +37,7 @@ export class AgentController {
     private deps: {
       nodeId: string;
       transport: ControlApiTransport;
-      provider: AndroidProvider;
+      provider: HeartbeatProvider;
       intervalMs?: number;
       baseBackoffMs?: number;
       maxBackoffMs?: number;
@@ -43,7 +55,7 @@ export class AgentController {
   private async buildHeartbeat(): Promise<NodeHeartbeat> {
     const [health, devices] = await Promise.all([this.deps.provider.health(), this.deps.provider.listDevices()]);
     return {
-      platform: 'windows',
+      platform: nodePlatform(),
       uptimeSeconds: health.uptimeSeconds,
       managedEmulatorCount: health.managedEmulatorCount,
       startedAt: health.startedAt,

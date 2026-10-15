@@ -106,7 +106,7 @@ Docker browser    Linux KVM Emulator       USB iPhone + WDA
 | IOS-008 | P1 | iOS Viewer 与 Web UI | 在控制台选真机并建立已授权远程会话 | 未完成 |
 | IOS-009 | P2 | iPhone App IPA 签名/安装与自动化 | 仅处理合法已授权的测试包，结果可审计 | 未完成 |
 | IOS-010 | P2 | 较新 Mac/Xcode 节点的扩容设计与验证 | 加一台新节点无需改造 Control API | 未完成 |
-| IOS-011 | P3 | iOS Simulator 支持 | macOS 节点创建已安装 Runtime 对应模拟器 | 未完成 |
+| IOS-011 | P3 | iOS Simulator 支持 | macOS 节点创建已安装 Runtime 对应模拟器 | 已交付（待 Mac 真机验证，见 2026-10-15 开发记录） |
 | IOS-012 | P2 | iOS 离线、断线、安全、压力及版本矩阵验收 | 节点恢复/保密/可维护版本清单 | 未完成 |
 
 **iOS 阶段门槛**：
