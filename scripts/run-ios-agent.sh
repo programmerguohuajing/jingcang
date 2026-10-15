@@ -21,6 +21,18 @@
 #      控制面与 Agent 同一台 Mac 用 http://127.0.0.1:7580；控制面在 Docker 里用
 #      http://host.docker.internal:7580（此时本脚本默认监听 0.0.0.0）；跨主机用 HTTPS 地址。
 #
+# 公网访问（Mac 在内网、控制面在云上时）：
+#   控制面只接受 https 的公网 agentUrl（http 仅限回环，见 validAgentUrl），推荐 Cloudflare Tunnel，
+#   免费且自带 TLS，无需公网 IP 和端口转发：
+#     brew install cloudflared
+#     cloudflared tunnel --url http://127.0.0.1:7580
+#   把输出的 https://xxx.trycloudflare.com 记下来（生产建议换成自己的域名做固定隧道），
+#   enroll 时 agentUrl 就填它。此时 Agent 监听保持 127.0.0.1 即可（JINGCANG_AGENT_HOST 不用改），
+#   公网只暴露 cloudflared 的出站隧道，没有入站端口。
+#   注意：最终用户走的始终是控制面的会话接口（截图/操作由控制面代理），公网暴露面
+#   只有 Agent 这一个端口，且受 64 位 Bearer 令牌保护；令牌泄露时管理员可调
+#   POST /api/v1/mobile/nodes/:id/revoke 立即吊销。
+#
 # 启动（Mac 上）：
 #   JINGCANG_NODE_ID=mac-ios-1 \
 #   JINGCANG_CONTROL_API_URL=http://127.0.0.1:28088 \
