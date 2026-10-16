@@ -1,0 +1,4 @@
+# 证书文件不进仓库（本地生成）
+*.pem
+!README.md
+!.gitkeep

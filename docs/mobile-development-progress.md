@@ -1,5 +1,12 @@
 # JingCang 移动测试平台开发记录
 
+### 2026-10-16 · 本机浏览器局域网访问 + HTTPS（opt-in）
+- 背景：mobile-dev 的 nginx 默认只绑 `127.0.0.1:28088`，局域网打不开，只能在远程桌面里的浏览器用；且局域网 HTTP 下浏览器禁用 WebCodecs，H.264 不可用。
+- 新增 `deploy/compose.mobile-dev.lan.yaml`（覆盖文件，需与主 compose 一起 `-f` 使用）：gateway 增加 `0.0.0.0:28443:443`，nginx conf 换成 `nginx.mobile-dev.lan.conf`（80 原样 + 443 ssl），挂载 `deploy/certs/`。
+- 新增 `deploy/certs/README.md`：mkcert 生成 `jingcang-lan.pem`/`jingcang-lan-key.pem`（本机一次），每台访问电脑也要 `mkcert -install` 装 CA；`deploy/certs/.gitignore` 忽略证书文件。
+- 用法：`docker compose -f compose.mobile-dev.yaml -f compose.mobile-dev.lan.yaml up -d`，本机浏览器开 `https://<局域网IP>:28443`。默认单文件启动行为不变。
+- 待用户在 Windows VM 上实测。
+
 ### 2026-10-16 · 模拟器 H.264 掉帧修复
 - 根因：PoC Agent 调 `screenrecord` 未指定分辨率/码率，模拟器无硬件 H.264 编码器，1080p 纯软编码帧率崩掉（之前 H.264 e2e 验证是在真机上过的，真机有硬件编码）。
 - `scripts/android-poc-agent.mjs`：模拟器 `screenrecord` 默认降到 `--size 720x1280 --bit-rate 2000000`，真机保持原生；`JINGCANG_H264_SIZE` / `JINGCANG_H264_BITRATE` 可覆盖（`run-android-agent.ps1` 已加注释示例）。

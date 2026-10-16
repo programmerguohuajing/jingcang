@@ -1,0 +1,24 @@
+# mobile-dev 局域网 + HTTPS 覆盖文件（opt-in，不影响默认的 127.0.0.1:28088）。
+#
+# 用途：在本机浏览器（而非远程桌面里的浏览器）打开控制台，并启用 H.264/WebCodecs
+# 低延迟视频。H.264 解码要求安全上下文，局域网 HTTP 下浏览器会禁用 WebCodecs
+# 回退到 MJPEG，所以局域网访问必须走 HTTPS。
+#
+# 前置：按 deploy/certs/README.md 生成证书（一次）。
+#
+# 启动：
+#   cd deploy
+#   docker compose -f compose.mobile-dev.yaml -f compose.mobile-dev.lan.yaml up -d
+#
+# 访问（示例，IP 换成跑 Docker 的机器的局域网 IP）：
+#   https://192.168.1.100:28443
+# 注意：每台来访问的电脑都要先执行一次 `mkcert -install` 安装本地 CA，
+# 否则浏览器会报证书不受信任。
+name: jingcang-mobile-dev
+services:
+  gateway:
+    ports:
+      - "0.0.0.0:28443:443"
+    volumes:
+      - ./nginx/nginx.mobile-dev.lan.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
