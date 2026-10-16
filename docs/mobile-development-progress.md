@@ -1,5 +1,12 @@
 # JingCang 移动测试平台开发记录
 
+### 2026-10-16 · 模拟器 H.264 掉帧修复
+- 根因：PoC Agent 调 `screenrecord` 未指定分辨率/码率，模拟器无硬件 H.264 编码器，1080p 纯软编码帧率崩掉（之前 H.264 e2e 验证是在真机上过的，真机有硬件编码）。
+- `scripts/android-poc-agent.mjs`：模拟器 `screenrecord` 默认降到 `--size 720x1280 --bit-rate 2000000`，真机保持原生；`JINGCANG_H264_SIZE` / `JINGCANG_H264_BITRATE` 可覆盖（`run-android-agent.ps1` 已加注释示例）。
+- 降采样后触控坐标需换算：Agent 新增 `toDeviceXY`，按 H.264 流推送中（`videoBusy`）的视频分辨率 → `wm size` 原生分辨率换算 tap/swipe；MJPEG/截图模式坐标本就是原生，不换算。
+- 控制台：H.264/MJPEG 连续画面模式下点击后不再多拉一张截图（画面流自行刷新）。
+- 待用户在 emulator-5584 上重启 Agent 实测帧率与点击跟手度。
+
 ## 2026-10-15 · iOS Simulator 远程支持（P1 软件基础层）
 
 分支：`feat/mobile-device-cloud`，对应计划 IOS-011。

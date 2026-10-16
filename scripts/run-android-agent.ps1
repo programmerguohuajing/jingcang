@@ -10,4 +10,7 @@ $env:JINGCANG_ANDROID_AGENT_PORT = '19879'
 if (-not $env:JINGCANG_ANDROID_AGENT_PUBLIC_URL) {
   $env:JINGCANG_ANDROID_AGENT_PUBLIC_URL = 'http://host.docker.internal:19879'
 }
+# 模拟器 H.264 软编码降负载（默认 720x1280/2Mbps；真机不受影响）。按需取消注释覆盖：
+# $env:JINGCANG_H264_SIZE = '720x1280'
+# $env:JINGCANG_H264_BITRATE = '2000000'
 node (Join-Path $PSScriptRoot 'android-poc-agent.mjs')

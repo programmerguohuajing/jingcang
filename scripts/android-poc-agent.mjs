@@ -30,6 +30,35 @@ async function managedStatus(name){
 const host = process.env.JINGCANG_ANDROID_AGENT_HOST || '127.0.0.1';
 const token = process.env.JINGCANG_MOBILE_AGENT_TOKEN || '';
 const port = Number(process.env.JINGCANG_ANDROID_AGENT_PORT || 19879);
+// 模拟器没有硬件 H.264 编码器：screenrecord 纯软编码原生分辨率会严重掉帧。
+// 模拟器默认降到 720p/2Mbps；真机保持原生分辨率（沿用已验证的 e2e 参数）。
+// 可用 JINGCANG_H264_SIZE / JINGCANG_H264_BITRATE 覆盖。
+const h264Size=(()=>{const v=String(process.env.JINGCANG_H264_SIZE||'720x1280').trim();return /^\d{3,4}x\d{3,4}$/.test(v)?v:'720x1280';})();
+const h264Bitrate=(()=>{const v=String(process.env.JINGCANG_H264_BITRATE||'2000000').trim();return /^\d{5,8}$/.test(v)?v:'2000000';})();
+const wmSizeCache=new Map();
+async function deviceNativeSize(serial){
+  if(wmSizeCache.has(serial))return wmSizeCache.get(serial);
+  const out=await adbText(['-s',serial,'shell','wm','size']).catch(()=>'');
+  const m=/Override size:\s*(\d+)x(\d+)/.exec(out)||/Physical size:\s*(\d+)x(\d+)/.exec(out);
+  const size=m?{w:Number(m[1]),h:Number(m[2])}:null;
+  if(size)wmSizeCache.set(serial,size);
+  return size;
+}
+function h264VideoSize(serial){
+  if(!serial.startsWith('emulator-'))return null; // 真机原生分辨率，无需换算
+  const m=/^(\d+)x(\d+)$/.exec(h264Size);
+  return m?{w:Number(m[1]),h:Number(m[2])}:null;
+}
+// 视频像素坐标 → 设备原生像素坐标。仅 H.264 流推送中时坐标才是视频空间
+// （可能被 --size 降采样）；MJPEG/截图模式坐标本就是原生分辨率，不换算。
+async function toDeviceXY(serial,x,y){
+  if(!videoBusy.has(serial))return [x,y];
+  const vs=h264VideoSize(serial);
+  if(!vs)return [x,y];
+  const ds=await deviceNativeSize(serial);
+  if(!ds||(ds.w===vs.w&&ds.h===vs.h))return [x,y];
+  return [Math.round(x*ds.w/vs.w),Math.round(y*ds.h/vs.h)];
+}
 const adb = process.env.JINGCANG_ADB_PATH || 'D:\\Program Files\\platform-tools\\adb.exe';
 const emulator = process.env.JINGCANG_EMULATOR_PATH || path.join(process.env.LOCALAPPDATA || path.join(homedir(),'AppData','Local'),'Android','Sdk','emulator','emulator.exe');
 if (host !== '127.0.0.1' && token.length < 32) throw new Error('Remote binding requires strong token');
@@ -223,7 +252,11 @@ http.createServer(async(req,res)=>{
       if(videoBusy.has(serial))return send(res,409,{error:'VIDEO_ALREADY_RUNNING'});
       videoBusy.add(serial);
       // Android MediaCodec supplies Annex-B H.264 directly, with no host-side encoder.
-      const child=spawn(adb,['-s',serial,'exec-out','screenrecord','--output-format=h264','--time-limit','60','-'],{windowsHide:true,stdio:['ignore','pipe','pipe']});
+      // 模拟器软编码扛不住原生分辨率：emulator 降采样到 h264Size/h264Bitrate，真机保持原生。
+      const sargs=['-s',serial,'exec-out','screenrecord','--output-format=h264'];
+      if(serial.startsWith('emulator-'))sargs.push('--size',h264Size,'--bit-rate',h264Bitrate);
+      sargs.push('--time-limit','60','-');
+      const child=spawn(adb,sargs,{windowsHide:true,stdio:['ignore','pipe','pipe']});
       let closed=false;
       const stop=()=>{if(closed)return;closed=true;videoBusy.delete(serial);child.kill();};
       res.writeHead(200,{'Content-Type':'video/h264','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
@@ -271,7 +304,8 @@ http.createServer(async(req,res)=>{
       if(body.type==='key' && allowedKeys.has(body.key)){
         await adbText(['-s',serial,'shell','input','keyevent',keyCodes[body.key]]);
       }else if(body.type==='tap' && Number.isInteger(body.x) && Number.isInteger(body.y) && body.x>=0 && body.x<=10000 && body.y>=0 && body.y<=10000){
-        await adbText(['-s',serial,'shell','input','tap',String(body.x),String(body.y)]);
+        const [dx,dy]=await toDeviceXY(serial,body.x,body.y);
+        await adbText(['-s',serial,'shell','input','tap',String(dx),String(dy)]);
       }else if((body.type==='launchApp'||body.type==='stopApp') && typeof body.package==='string' && /^[a-zA-Z][a-zA-Z0-9_.]{1,180}$/.test(body.package)){
         const installed=await adbText(['-s',serial,'shell','pm','path',body.package]);
         if(!installed.includes('package:')) return send(res,404,{error:'PACKAGE_NOT_INSTALLED'});
@@ -293,7 +327,9 @@ http.createServer(async(req,res)=>{
         if(!['http:','https:'].includes(target.protocol) || target.username || target.password) return send(res,400,{error:'INVALID_URL'});
         await adbText(['-s',serial,'shell','am','start','-a','android.intent.action.VIEW','-d',target.href,'-p','com.android.chrome']);
       }else if(body.type==='swipe' && [body.x1,body.y1,body.x2,body.y2].every(v=>Number.isInteger(v)&&v>=0&&v<=10000) && Number.isInteger(body.duration) && body.duration>=100 && body.duration<=2000){
-        await adbText(['-s',serial,'shell','input','swipe',String(body.x1),String(body.y1),String(body.x2),String(body.y2),String(body.duration)]);
+        const [dx1,dy1]=await toDeviceXY(serial,body.x1,body.y1);
+        const [dx2,dy2]=await toDeviceXY(serial,body.x2,body.y2);
+        await adbText(['-s',serial,'shell','input','swipe',String(dx1),String(dy1),String(dx2),String(dy2),String(body.duration)]);
       }else return send(res,400,{error:'INVALID_ACTION'});
       return send(res,200,{success:true});
     }

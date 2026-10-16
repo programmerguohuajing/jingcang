@@ -83,7 +83,7 @@ export const MobileDevicesPage: React.FC = () => {
  async function action(body:object){
   if(!selected)return;
   const r=await fetch('/api/v1/mobile/sessions/'+encodeURIComponent(selected.id)+'/actions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok)setError('操作失败：设备连接不可用');else void screenshot(selected.id).catch(()=>{});
+  if(!r.ok)setError('操作失败：设备连接不可用');else if(!h264&&!streaming)void screenshot(selected.id).catch(()=>{});
  }
  async function createAvd(apiLevel:number){
   const res=await fetch('/api/v1/mobile/profiles/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apiLevel})});
